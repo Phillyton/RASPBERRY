@@ -503,6 +503,10 @@ def df_to_excel_download(df, filename):
 
 st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
 
+#Logo de Raspberry
+ruta_logo = Path(r"C:\Users\leona\OneDrive\Documentos\RASPBERRY\Logo de raspberry.jpg")
+st.image(str(ruta_logo), width=180)
+
 st.title("Reportes Raspberry – Altas y Bajas")
 
 tab_bajas, tab_altas = st.tabs(["🔻 Reportes de Bajas", "🔺 Reportes de Altas"])
