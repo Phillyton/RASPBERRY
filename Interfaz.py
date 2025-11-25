@@ -512,10 +512,10 @@ tab_bajas, tab_altas = st.tabs(["🔻 Reportes de Bajas", "🔺 Reportes de Alta
 with tab_bajas:
     st.subheader("Consolidado de Bajas")
 
-    parque_file = st.file_uploader("Archivo de parque vehicular", type=["xlsx", "xls"], key="parque_bajas")
-    cancelacion_file = st.file_uploader("Archivo de Cancelación", type=["xlsx", "xls"], key="cancelacion_bajas")
-    cancelado_file = st.file_uploader("Archivo de Cancelado.xlsx", type=["xlsx", "xls"], key="cancelado_bajas")
-    nomina_file = st.file_uploader("DArchivo de desectos o nomina.xlsx", type=["xlsx", "xls"], key="nomina_bajas")
+    parque_file = st.file_uploader("Parque vehicular", type=["xlsx", "xls"], key="parque_bajas")
+    cancelacion_file = st.file_uploader("Cancelación", type=["xlsx", "xls"], key="cancelacion_bajas")
+    cancelado_file = st.file_uploader("Cancelado.xlsx", type=["xlsx", "xls"], key="cancelado_bajas")
+    nomina_file = st.file_uploader("Desectos o nomina.xlsx", type=["xlsx", "xls"], key="nomina_bajas")
 
     if all([parque_file, cancelacion_file, cancelado_file, nomina_file]):
         if st.button("Procesar bajas"):
@@ -538,10 +538,10 @@ with tab_bajas:
 with tab_altas:
     st.subheader("Template de Altas")
 
-    parque_v_file = st.file_uploader("Archivo de parque vehicular ", type=["xlsx", "xls"], key="parque_altas")
-    activos_file = st.file_uploader("Archivo de Activos", type=["xlsx", "xls"], key="activos_altas")
-    nomina_altas_file = st.file_uploader("Archivo de Desectos o Nominas", type=["xlsx", "xls"], key="nomina_altas")
-    template_file = st.file_uploader("Archivo de Altas (Template)", type=["xlsx", "xls"], key="template_altas")
+    parque_v_file = st.file_uploader("Parque vehicular ", type=["xlsx", "xls"], key="parque_altas")
+    activos_file = st.file_uploader("Activos", type=["xlsx", "xls"], key="activos_altas")
+    nomina_altas_file = st.file_uploader("Desectos o Nominas", type=["xlsx", "xls"], key="nomina_altas")
+    template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas")
 
     if all([parque_v_file, activos_file, nomina_altas_file, template_file]):
         if st.button("Procesar altas"):
