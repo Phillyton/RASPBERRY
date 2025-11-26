@@ -288,7 +288,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         if col not in activos_filtrado.columns:
             activos_filtrado[col] = None
 
-    # ----- 4. Reporte / Activos GNP (sin filtrar) -----
+    # ----- 4. Reporte / Activos GNP (sin filtrar filas) -----
     col_ref_nomina = None
     for c in nomina.columns:
         if c.strip().lower() == "nº ref.externo".lower():
@@ -309,10 +309,22 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     llave_nomina  = nomina[col_ref_nomina].astype(str).str.strip()
     llave_parque  = parque_vigentes[col_cdnum_parque].astype(str).str.strip()
 
-    valores_nomina  = set(llave_nomina.dropna())
-    # valores_parque = set(llave_parque.dropna())  # ya no lo usamos
+    valores_nomina = set(llave_nomina.dropna())
+    # valores_parque = set(llave_parque.dropna())  # ya no lo usamos para filtrar
 
-    activos_filtrado["Reporte"]     = llave_activos.where(llave_activos.isin(valores_nomina), pd.NA)
+    # Coincidencias con nómina
+    activos_filtrado["Reporte"] = llave_activos.where(
+        llave_activos.isin(valores_nomina), pd.NA
+    )
+
+    # 👉 NUEVO: dejar explícito "N/A" donde no hubo match
+    activos_filtrado["Reporte"] = (
+        activos_filtrado["Reporte"]
+        .replace(["", " ", None], pd.NA)
+        .fillna("N/A")
+    )
+
+    # Activos GNP siempre "N/A"
     activos_filtrado["Activos GNP"] = "N/A"
 
     # ----- 5. Últimos 2 meses completos (Fecha de Alta) -----
