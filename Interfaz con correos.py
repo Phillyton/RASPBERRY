@@ -2,30 +2,9 @@ import streamlit as st
 import pandas as pd
 from pandas import DateOffset
 from io import BytesIO
-import win32com.client as win32
 
 # =========================================
-# FUNCIONES UTILIDAD
-# =========================================
-
-def df_to_excel_download(df, filename):
-    buffer = BytesIO()
-    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-        df.to_excel(writer, index=False)
-    buffer.seek(0)
-    st.download_button(
-        label=f"📥 Descargar {filename}",
-        data=buffer,
-        file_name=filename,
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-def obtener_outlook():
-    return win32.Dispatch("Outlook.Application")
-
-
-# =========================================
-# PROCESO – BAJAS
+# FUNCIONES DE PROCESO (BAJAS Y ALTAS)
 # =========================================
 
 def procesar_bajas(parque, cancelacion, cancelado, nomina):
@@ -278,10 +257,6 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
     return consolidado_bajas
 
 
-# =========================================
-# PROCESO – ALTAS
-# =========================================
-
 def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     # ==============================
     # PASO 1 — LIMPIAR ACTIVOS
@@ -486,6 +461,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     # ==============================
     # AMORTIZACIÓN
     # ==============================
+    anio_ref = fecha_quincena.year
     mes_inicio = fecha_quincena.month
     dia_inicio = fecha_quincena.day
 
@@ -505,130 +481,21 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         if quincenas_restantes > 0:
             template_final[col_amortizacion] = (importe_num / quincenas_restantes).round(2)
 
-    return template_final
+    # 👉 regresamos también activos_filtrado para descargarlo
+    return template_final, activos_filtrado
 
 
-# =========================================
-# CORREOS (BAJAS Y ALTAS) – VERSIÓN STREAMLIT
-# =========================================
-
-COL_CORREO_BAJAS = "Correo"
-COL_POLIZA_BAJAS = "Nº ref.externo"
-
-COL_CORREO_ALTAS = "Correo"
-COL_POLIZA_ALTAS = "Nº referencia externo"
-
-NOMBRE_REMITENTE_DEF = "Raspberry Servicios"
-
-
-def enviar_correos_bajas_df(df_bajas, modo_borrador, remitente):
-    df_bajas = df_bajas.copy()
-    df_bajas.columns = df_bajas.columns.str.strip()
-
-    for col in [COL_CORREO_BAJAS, COL_POLIZA_BAJAS]:
-        if col not in df_bajas.columns:
-            raise ValueError(f"Falta columna '{col}' en archivo de bajas")
-
-    df_bajas = df_bajas[
-        df_bajas[COL_CORREO_BAJAS].notna()
-        & df_bajas[COL_CORREO_BAJAS].astype(str).str.strip().ne("")
-        & df_bajas[COL_POLIZA_BAJAS].notna()
-    ]
-
-    if df_bajas.empty:
-        st.warning("No hay registros de bajas con correo válido.")
-        return 0
-
-    outlook = obtener_outlook()
-    enviados = 0
-
-    for _, row in df_bajas.iterrows():
-        correo = str(row[COL_CORREO_BAJAS]).strip()
-        poliza = str(row[COL_POLIZA_BAJAS]).strip()
-
-        subject = f"Notificación de baja de póliza {poliza}"
-        body = f"""
-Hola,
-
-Se ha registrado una BAJA de tu seguro de automóvil.
-
-• Número de póliza: {poliza}
-
-Si tienes dudas sobre este movimiento, por favor responde a este correo.
-
-Saludos,
-{remitente}
-"""
-
-        mail = outlook.CreateItem(0)
-        mail.To = correo
-        mail.Subject = subject
-        mail.Body = body
-
-        if modo_borrador:
-            mail.Display()
-        else:
-            mail.Send()
-
-        enviados += 1
-
-    return enviados
-
-
-def enviar_correos_altas_df(df_altas, modo_borrador, remitente):
-    df_altas = df_altas.copy()
-    df_altas.columns = df_altas.columns.str.strip()
-
-    for col in [COL_CORREO_ALTAS, COL_POLIZA_ALTAS]:
-        if col not in df_altas.columns:
-            raise ValueError(f"Falta columna '{col}' en archivo de altas")
-
-    df_altas = df_altas[
-        df_altas[COL_CORREO_ALTAS].notna()
-        & df_altas[COL_CORREO_ALTAS].astype(str).str.strip().ne("")
-        & df_altas[COL_POLIZA_ALTAS].notna()
-    ]
-
-    if df_altas.empty:
-        st.warning("No hay registros de altas con correo válido.")
-        return 0
-
-    outlook = obtener_outlook()
-    enviados = 0
-
-    for _, row in df_altas.iterrows():
-        correo = str(row[COL_CORREO_ALTAS]).strip()
-        poliza = str(row[COL_POLIZA_ALTAS]).strip()
-
-        subject = f"Notificación de alta de póliza {poliza}"
-        body = f"""
-Hola,
-
-Se ha registrado el ALTA de tu seguro de automóvil.
-
-• Número de póliza: {poliza}
-
-El cargo se reflejará normalmente en tu nómina.
-
-Si tienes dudas sobre tu alta o los importes, por favor responde a este correo.
-
-Saludos,
-{remitente}
-"""
-
-        mail = outlook.CreateItem(0)
-        mail.To = correo
-        mail.Subject = subject
-        mail.Body = body
-
-        if modo_borrador:
-            mail.Display()
-        else:
-            mail.Send()
-
-        enviados += 1
-
-    return enviados
+def df_to_excel_download(df, filename):
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False)
+    buffer.seek(0)
+    st.download_button(
+        label=f"📥 Descargar {filename}",
+        data=buffer,
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 
 
 # =========================================
@@ -637,22 +504,18 @@ Saludos,
 
 st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
 
-st.title("🚗 Raspberry – Reportes y Correos de Altas / Bajas")
+st.title("Reportes Raspberry – Altas y Bajas")
 
-tab_bajas, tab_altas, tab_correos = st.tabs([
-    "🔻 Reportes de Bajas",
-    "🔺 Reportes de Altas",
-    "📧 Envío de correos"
-])
+tab_bajas, tab_altas = st.tabs(["🔻 Reportes de Bajas", "🔺 Reportes de Altas"])
 
 # ---------------- TAB BAJAS ----------------
 with tab_bajas:
     st.subheader("Consolidado de Bajas")
 
-    parque_file = st.file_uploader("Parque vehicular (Anuladas)", type=["xlsx", "xls"], key="parque_bajas")
+    parque_file = st.file_uploader("Parque vehicular", type=["xlsx", "xls"], key="parque_bajas")
     cancelacion_file = st.file_uploader("Cancelación", type=["xlsx", "xls"], key="cancelacion_bajas")
     cancelado_file = st.file_uploader("Cancelado", type=["xlsx", "xls"], key="cancelado_bajas")
-    nomina_file = st.file_uploader("Desectos o nómina", type=["xlsx", "xls"], key="nomina_bajas")
+    nomina_file = st.file_uploader("Desectos o nomina", type=["xlsx", "xls"], key="nomina_bajas")
 
     if all([parque_file, cancelacion_file, cancelado_file, nomina_file]):
         if st.button("Procesar bajas"):
@@ -661,6 +524,7 @@ with tab_bajas:
             cancelado_df = pd.read_excel(cancelado_file)
             nomina_df = pd.read_excel(nomina_file)
 
+            # limpiar columnas
             for df in [parque_df, cancelacion_df, cancelado_df, nomina_df]:
                 df.columns = df.columns.str.strip()
 
@@ -674,10 +538,10 @@ with tab_bajas:
 with tab_altas:
     st.subheader("Template de Altas")
 
-    parque_v_file = st.file_uploader("Parque vehicular (Vigentes)", type=["xlsx", "xls"], key="parque_altas")
+    parque_v_file = st.file_uploader("Parque vehicular ", type=["xlsx", "xls"], key="parque_altas")
     activos_file = st.file_uploader("Activos", type=["xlsx", "xls"], key="activos_altas")
-    nomina_altas_file = st.file_uploader("Desectos o nómina", type=["xlsx", "xls"], key="nomina_altas")
-    template_file = st.file_uploader("Altas (Template base)", type=["xlsx", "xls"], key="template_altas")
+    nomina_altas_file = st.file_uploader("Desectos o Nominas", type=["xlsx", "xls"], key="nomina_altas")
+    template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas")
 
     if all([parque_v_file, activos_file, nomina_altas_file, template_file]):
         if st.button("Procesar altas"):
@@ -689,69 +553,17 @@ with tab_altas:
             for df in [parque_v_df, activos_df, nomina_altas_df, template_df]:
                 df.columns = df.columns.str.strip()
 
-            template_final_df = procesar_altas(parque_v_df, activos_df, nomina_altas_df, template_df)
+            # ahora regresamos template_final y activos_filtrado
+            template_final_df, activos_filtrado_df = procesar_altas(
+                parque_v_df, activos_df, nomina_altas_df, template_df
+            )
+
             st.success("Template de Altas generado correctamente.")
+
+            # 📥 Descargar template generado
             df_to_excel_download(template_final_df, "Template_de_Altas_generado.xlsx")
+
+            # 📥 Descargar también Activos depurado
+            df_to_excel_download(activos_filtrado_df, "Activos_depurados_altas.xlsx")
     else:
         st.info("📂 Sube todos los archivos para poder generar el reporte de Altas.")
-
-
-# ---------------- TAB CORREOS ----------------
-with tab_correos:
-    st.subheader("Envío de correos (Altas / Bajas)")
-
-    st.markdown("Puedes subir **uno o ambos** archivos y mandar correos por separado.")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        bajas_mail_file = st.file_uploader(
-            "Archivo de bajas (consolidado_de_bajas.xlsx)",
-            type=["xlsx", "xls"],
-            key="bajas_mail"
-        )
-
-    with col2:
-        altas_mail_file = st.file_uploader(
-            "Archivo de altas (Template_de_Altas_generado.xlsx)",
-            type=["xlsx", "xls"],
-            key="altas_mail"
-        )
-
-    st.markdown("---")
-
-    modo_borrador = st.checkbox(
-        "Solo crear borradores en Outlook (no enviar aún)",
-        value=True
-    )
-
-    remitente = st.text_input(
-        "Nombre para firma del correo:",
-        value=NOMBRE_REMITENTE_DEF
-    )
-
-    col_b1, col_b2 = st.columns(2)
-
-    with col_b1:
-        if st.button("✉ Enviar correos de BAJAS"):
-            if not bajas_mail_file:
-                st.warning("Primero sube el archivo de bajas (consolidado_de_bajas.xlsx).")
-            else:
-                try:
-                    df_bajas_mail = pd.read_excel(bajas_mail_file)
-                    enviados = enviar_correos_bajas_df(df_bajas_mail, modo_borrador, remitente)
-                    st.success(f"Correos de BAJAS procesados. Registros con correo: {enviados}")
-                except Exception as e:
-                    st.error(f"Error al enviar correos de BAJAS: {e}")
-
-    with col_b2:
-        if st.button("✉ Enviar correos de ALTAS"):
-            if not altas_mail_file:
-                st.warning("Primero sube el archivo de altas (Template_de_Altas_generado.xlsx).")
-            else:
-                try:
-                    df_altas_mail = pd.read_excel(altas_mail_file)
-                    enviados = enviar_correos_altas_df(df_altas_mail, modo_borrador, remitente)
-                    st.success(f"Correos de ALTAS procesados. Registros con correo: {enviados}")
-                except Exception as e:
-                    st.error(f"Error al enviar correos de ALTAS: {e}")
