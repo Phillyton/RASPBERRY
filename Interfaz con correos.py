@@ -4,23 +4,25 @@ from pandas import DateOffset
 from io import BytesIO
 
 # =========================================
-# FUNCIONES DE UTILIDAD
+# FUNCIONES AUXILIARES
 # =========================================
 
-def df_to_excel_download(df, filename):
+def df_to_excel_download(df, filename, label=None):
+    if label is None:
+        label = f"📥 Descargar {filename}"
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)
     buffer.seek(0)
     st.download_button(
-        label=f"📥 Descargar {filename}",
+        label=label,
         data=buffer,
         file_name=filename,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
 # =========================================
-# PROCESO DE BAJAS (IGUAL QUE YA TENÍAS)
+# BAJAS
 # =========================================
 
 def procesar_bajas(parque, cancelacion, cancelado, nomina):
@@ -170,7 +172,7 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
     if columnas_vacias_canc:
         df_cancelacion_nomina.drop(columns=columnas_vacias_canc, inplace=True)
 
-    # ---------- Anulados GNP ----------
+    # ---------- Anulados ----------
     df_anulados_nomina = df_nomina_cancelaciones_antes_de_eliminar.copy()
 
     COL_LLAVE_NOMINA_ANU  = "Nº ref.externo"
@@ -246,13 +248,12 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
 
     return consolidado_bajas
 
-
 # =========================================
-# PROCESO DE ALTAS (MODIFICADO)
+# ALTAS
 # =========================================
 
 def procesar_altas(parque_vigentes, activos, nomina, template_altas):
-    # ---------- Paso 1: limpiar Activos ----------
+    # ----- 1. Institución -----
     col_institucion = None
     for c in activos.columns:
         if c.strip().lower() == "institución".lower():
@@ -271,23 +272,23 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     activos[col_institucion] = activos[col_institucion].astype(str).str.strip()
     activos_filtrado = activos[~activos[col_institucion].isin(instituciones_a_borrar)].copy()
 
-    # Detectar "No. Póliza"
+    # ----- 2. No. Póliza -----
     col_poliza = None
     for c in activos_filtrado.columns:
         if c.strip().lower() == "no. póliza".lower():
             col_poliza = c
             break
-    if not col_poliza:
+    if col_poliza is None:
         raise ValueError("⚠ No encontré 'No. Póliza' en Activos_filtrado")
 
     activos_filtrado[col_poliza] = pd.to_numeric(activos_filtrado[col_poliza], errors="coerce")
 
-    # ---------- Paso 2: columnas nuevas ----------
+    # ----- 3. columnas nuevas -----
     for col in ["Reporte", "Activos GNP"]:
         if col not in activos_filtrado.columns:
             activos_filtrado[col] = None
 
-    # ---------- Paso 3: llenar Reporte y Activos GNP ----------
+    # ----- 4. Reporte / Activos GNP (sin filtrar) -----
     col_ref_nomina = None
     for c in nomina.columns:
         if c.strip().lower() == "nº ref.externo".lower():
@@ -308,20 +309,13 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     llave_nomina  = nomina[col_ref_nomina].astype(str).str.strip()
     llave_parque  = parque_vigentes[col_cdnum_parque].astype(str).str.strip()
 
-    valores_nomina = set(llave_nomina.dropna())
-    valores_parque = set(llave_parque.dropna())
+    valores_nomina  = set(llave_nomina.dropna())
+    # valores_parque = set(llave_parque.dropna())  # ya no lo usamos
 
-    # Reporte: si está en nómina → número, si no → N/A
-    activos_filtrado["Reporte"] = llave_activos.where(
-        llave_activos.isin(valores_nomina),
-        "N/A"
-    )
-
-    # Activos GNP: lo vamos a dejar en "N/A" en el Excel depurado (según tu último pedido),
-    # pero igual podríamos guardar aquí la coincidencia:
+    activos_filtrado["Reporte"]     = llave_activos.where(llave_activos.isin(valores_nomina), pd.NA)
     activos_filtrado["Activos GNP"] = "N/A"
 
-    # ---------- Paso 4: filtrar últimos 2 meses completos por Fecha de Alta ----------
+    # ----- 5. Últimos 2 meses completos (Fecha de Alta) -----
     col_fecha_alta = None
     for c in activos_filtrado.columns:
         if c.strip().lower() == "fecha de alta":
@@ -344,7 +338,9 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         activos_filtrado[col_fecha_alta] >= primer_dia_hace_dos_meses
     ]
 
-    # ---------- Paso 5: limpiar número de nómina → NumeroPersonalLimpio ----------
+    activos_filtrado[col_fecha_alta] = activos_filtrado[col_fecha_alta].dt.strftime("%d/%m/%Y")
+
+    # ----- 6. NumeroPersonalLimpio -----
     col_num_nomina = None
     for c in activos_filtrado.columns:
         if "nomina" in c.lower() or "nómina" in c.lower():
@@ -365,30 +361,31 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         errors="coerce"
     )
 
-    # ---------- Paso 6: llenar Template de Altas (en memoria) ----------
-    template_final = template_altas.copy()
-    template_final = template_final.iloc[:len(activos_filtrado)].copy()
-    template_final.loc[:, :] = None  # vaciar datos viejos
+    # ----- 7. Crear template_final con mismo número de filas -----
+    template_final = pd.DataFrame(
+        index=range(len(activos_filtrado)),
+        columns=template_altas.columns
+    )
 
     if "Número de personal" in template_final.columns:
         template_final["Número de personal"] = activos_filtrado["NumeroPersonalLimpio"].values
 
-    template_final["Tipo de carga"] = "C"
-    template_final["Fin de validez"] = "31.12.9999"
-    template_final["Cc-nómina"] = "3353"
+    template_final["Tipo de carga"]                = "C"
+    template_final["Fin de validez"]               = "31.12.9999"
+    template_final["Cc-nómina"]                    = "3353"
     template_final["Condición préstamo SE01-QU02"] = "02"
-    template_final["Vía de Pago"] = "0100"
-    template_final["Texto"] = "Seguro de Automóvil altas NOM"
-    template_final["Subdivisión"] = "0001"
+    template_final["Vía de Pago"]                  = "0100"
+    template_final["Texto"]                        = "Seguro de Automóvil altas NOM"
+    template_final["Subdivisión"]                  = "0001"
 
-    # N° referencia externo
+    # ----- 8. N° referencia externo -----
     col_template_ref_ext = None
     for c in template_final.columns:
         if "referencia" in c.lower() and "externo" in c.lower():
             col_template_ref_ext = c
             break
 
-    if col_template_ref_ext is not None and col_poliza is not None:
+    if col_template_ref_ext is not None:
         template_final[col_template_ref_ext] = (
             activos_filtrado[col_poliza]
             .astype("Int64")
@@ -397,12 +394,13 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
             .values
         )
 
-    # ---------- Paso 7: fechas de quincena (inicio de validez / autorización / pago) ----------
+    # ----- 9. Fechas de quincena -----
     hoy2 = pd.Timestamp.today()
     if hoy2.day <= 15:
         fecha_quincena = hoy2.replace(day=1)
     else:
         fecha_quincena = hoy2.replace(day=16)
+
     fecha_quincena_str = fecha_quincena.strftime("%d.%m.%Y")
 
     if "Inicio de la validez" in template_final.columns:
@@ -417,7 +415,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         if col in template_final.columns:
             template_final[col] = fecha_quincena_str
 
-    # ---------- Paso 8: Importe de préstamo autorizado ----------
+    # ----- 10. Importe y amortización -----
     col_importe_origen = None
     for c in activos_filtrado.columns:
         if c.strip().lower() == "precio a fin de vigencia".lower():
@@ -430,10 +428,8 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     if col_importe_destino in template_final.columns:
         template_final[col_importe_destino] = activos_filtrado[col_importe_origen].values
 
-    # ---------- Paso 9: Amortización ----------
     mes_inicio = fecha_quincena.month
     dia_inicio = fecha_quincena.day
-
     quincenas_restantes = 0
     for mes in range(mes_inicio, 13):
         if mes == mes_inicio:
@@ -447,22 +443,10 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         if quincenas_restantes > 0:
             template_final[col_amortizacion] = (importe_num / quincenas_restantes).round(2)
 
-    # ---------- Paso 10: preparar archivo de Activos depurados ----------
-    # 1) Forzar N/A en Activos GNP
-    if "Activos GNP" in activos_filtrado.columns:
-        activos_filtrado["Activos GNP"] = "N/A"
-
-    # 2) Formato dd/mm/yyyy en Fecha de Alta
-    if col_fecha_alta in activos_filtrado.columns:
-        activos_filtrado[col_fecha_alta] = pd.to_datetime(
-            activos_filtrado[col_fecha_alta], errors="coerce"
-        ).dt.strftime("%d/%m/%Y")
-
-    # 3) Quitar columna NumeroPersonalLimpio del archivo que se descarga
+    # ----- 11. Activos depurados para descargar -----
     activos_salida = activos_filtrado.drop(columns=["NumeroPersonalLimpio"], errors="ignore")
 
     return template_final, activos_salida
-
 
 # =========================================
 # APP STREAMLIT
@@ -477,10 +461,10 @@ tab_bajas, tab_altas = st.tabs(["🔻 Reportes de Bajas", "🔺 Reportes de Alta
 with tab_bajas:
     st.subheader("Consolidado de Bajas")
 
-    parque_file = st.file_uploader("Parque vehicular", type=["xlsx", "xls"], key="parque_bajas")
+    parque_file = st.file_uploader("Parque vehicular (Anuladas)", type=["xlsx", "xls"], key="parque_bajas")
     cancelacion_file = st.file_uploader("Cancelación", type=["xlsx", "xls"], key="cancelacion_bajas")
     cancelado_file = st.file_uploader("Cancelado", type=["xlsx", "xls"], key="cancelado_bajas")
-    nomina_file = st.file_uploader("Desectos o nomina", type=["xlsx", "xls"], key="nomina_bajas")
+    nomina_file = st.file_uploader("Desectos o nómina", type=["xlsx", "xls"], key="nomina_bajas")
 
     if all([parque_file, cancelacion_file, cancelado_file, nomina_file]):
         if st.button("Procesar bajas"):
@@ -502,10 +486,10 @@ with tab_bajas:
 with tab_altas:
     st.subheader("Template de Altas")
 
-    parque_v_file = st.file_uploader("Parque vehicular", type=["xlsx", "xls"], key="parque_altas")
+    parque_v_file = st.file_uploader("Parque vehicular (Vigentes)", type=["xlsx", "xls"], key="parque_altas")
     activos_file = st.file_uploader("Activos", type=["xlsx", "xls"], key="activos_altas")
-    nomina_altas_file = st.file_uploader("Desectos o Nominas", type=["xlsx", "xls"], key="nomina_altas")
-    template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas")
+    nomina_altas_file = st.file_uploader("Desectos o nómina", type=["xlsx", "xls"], key="nomina_altas")
+    template_file = st.file_uploader("Altas (Template base)", type=["xlsx", "xls"], key="template_altas")
 
     if all([parque_v_file, activos_file, nomina_altas_file, template_file]):
         if st.button("Procesar altas"):
@@ -520,9 +504,11 @@ with tab_altas:
             template_final_df, activos_salida_df = procesar_altas(
                 parque_v_df, activos_df, nomina_altas_df, template_df
             )
+            st.success("Template de Altas generado correctamente.")
 
-            st.success("Template de Altas y Activos depurados generados correctamente.")
-            df_to_excel_download(template_final_df, "Template_de_Altas_generado.xlsx")
-            df_to_excel_download(activos_salida_df, "Activos_depurados_altas.xlsx")
+            df_to_excel_download(template_final_df, "Template_de_Altas_generado.xlsx",
+                                 label="📥 Descargar Template de Altas")
+            df_to_excel_download(activos_salida_df, "Activos_filtrado_altas.xlsx",
+                                 label="📥 Descargar Activos depurados")
     else:
         st.info("📂 Sube todos los archivos para poder generar el reporte de Altas.")
