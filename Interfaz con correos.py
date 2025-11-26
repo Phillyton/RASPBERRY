@@ -256,6 +256,7 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
 
     return consolidado_bajas
 
+
 def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     # ==============================
     # PASO 1 — LIMPIAR ACTIVOS
@@ -323,16 +324,14 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     valores_nomina = set(llave_nomina.dropna())
     valores_parque = set(llave_parque.dropna())
 
-    # Si la póliza existe en nómina -> se pone el número; si no, queda NaN
     activos_filtrado["Reporte"] = llave_activos.where(llave_activos.isin(valores_nomina), pd.NA)
-    # Si la póliza existe en parque vigentes -> se pone; si no, NaN
     activos_filtrado["Activos GNP"] = llave_activos.where(llave_activos.isin(valores_parque), pd.NA)
 
     # ==============================
-    # PASO 4 — LIMPIEZA BÁSICA DE "Reporte" (SIN FILTRAR FILAS)
+    # PASO 4 — ELIMINAR FILAS DONDE "Reporte" NO ES NULO
     # ==============================
-    # ⚠️ AQUÍ ES DONDE CAMBIAMOS: YA NO SE FILTRAN FILAS, SOLO SE MARCAN CON 'N/A'
     activos_filtrado["Reporte"] = activos_filtrado["Reporte"].replace(["", " ", None], pd.NA)
+    activos_filtrado = activos_filtrado[activos_filtrado["Reporte"].isna()]
     activos_filtrado["Reporte"] = activos_filtrado["Reporte"].fillna("N/A")
 
     # ==============================
@@ -462,6 +461,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     # ==============================
     # AMORTIZACIÓN
     # ==============================
+    anio_ref = fecha_quincena.year
     mes_inicio = fecha_quincena.month
     dia_inicio = fecha_quincena.day
 
@@ -481,7 +481,89 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         if quincenas_restantes > 0:
             template_final[col_amortizacion] = (importe_num / quincenas_restantes).round(2)
 
-    # 👉 Antes de regresar, quitamos 'NumeroPersonalLimpio' del archivo depurado
-    activos_salida = activos_filtrado.drop(columns=["NumeroPersonalLimpio"], errors="ignore")
+    # 👉 regresamos también activos_filtrado para descargarlo
+    return template_final, activos_filtrado
 
-    return template_final, activos_salida
+
+def df_to_excel_download(df, filename):
+    buffer = BytesIO()
+    with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+        df.to_excel(writer, index=False)
+    buffer.seek(0)
+    st.download_button(
+        label=f"📥 Descargar {filename}",
+        data=buffer,
+        file_name=filename,
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+# =========================================
+# APP STREAMLIT
+# =========================================
+
+st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
+
+st.title("Reportes Raspberry – Altas y Bajas")
+
+tab_bajas, tab_altas = st.tabs(["🔻 Reportes de Bajas", "🔺 Reportes de Altas"])
+
+# ---------------- TAB BAJAS ----------------
+with tab_bajas:
+    st.subheader("Consolidado de Bajas")
+
+    parque_file = st.file_uploader("Parque vehicular", type=["xlsx", "xls"], key="parque_bajas")
+    cancelacion_file = st.file_uploader("Cancelación", type=["xlsx", "xls"], key="cancelacion_bajas")
+    cancelado_file = st.file_uploader("Cancelado", type=["xlsx", "xls"], key="cancelado_bajas")
+    nomina_file = st.file_uploader("Desectos o nomina", type=["xlsx", "xls"], key="nomina_bajas")
+
+    if all([parque_file, cancelacion_file, cancelado_file, nomina_file]):
+        if st.button("Procesar bajas"):
+            parque_df = pd.read_excel(parque_file, sheet_name="Anuladas")
+            cancelacion_df = pd.read_excel(cancelacion_file)
+            cancelado_df = pd.read_excel(cancelado_file)
+            nomina_df = pd.read_excel(nomina_file)
+
+            # limpiar columnas
+            for df in [parque_df, cancelacion_df, cancelado_df, nomina_df]:
+                df.columns = df.columns.str.strip()
+
+            consolidado = procesar_bajas(parque_df, cancelacion_df, cancelado_df, nomina_df)
+            st.success("Consolidado de bajas generado correctamente.")
+            df_to_excel_download(consolidado, "consolidado_de_bajas.xlsx")
+    else:
+        st.info("📂 Sube todos los archivos para poder generar el consolidado de bajas.")
+
+# ---------------- TAB ALTAS ----------------
+with tab_altas:
+    st.subheader("Template de Altas")
+
+    parque_v_file = st.file_uploader("Parque vehicular ", type=["xlsx", "xls"], key="parque_altas")
+    activos_file = st.file_uploader("Activos", type=["xlsx", "xls"], key="activos_altas")
+    nomina_altas_file = st.file_uploader("Desectos o Nominas", type=["xlsx", "xls"], key="nomina_altas")
+    template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas")
+
+    if all([parque_v_file, activos_file, nomina_altas_file, template_file]):
+        if st.button("Procesar altas"):
+            parque_v_df = pd.read_excel(parque_v_file, sheet_name="Vigentes")
+            activos_df = pd.read_excel(activos_file)
+            nomina_altas_df = pd.read_excel(nomina_altas_file)
+            template_df = pd.read_excel(template_file)
+
+            for df in [parque_v_df, activos_df, nomina_altas_df, template_df]:
+                df.columns = df.columns.str.strip()
+
+            # ahora regresamos template_final y activos_filtrado
+            template_final_df, activos_filtrado_df = procesar_altas(
+                parque_v_df, activos_df, nomina_altas_df, template_df
+            )
+
+            st.success("Template de Altas generado correctamente.")
+
+            # 📥 Descargar template generado
+            df_to_excel_download(template_final_df, "Template_de_Altas_generado.xlsx")
+
+            # 📥 Descargar también Activos depurado
+            df_to_excel_download(activos_filtrado_df, "Activos_depurados_altas.xlsx")
+    else:
+        st.info("📂 Sube todos los archivos para poder generar el reporte de Altas.")
