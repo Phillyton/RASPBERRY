@@ -256,7 +256,6 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
 
     return consolidado_bajas
 
-
 def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     # ==============================
     # PASO 1 — LIMPIAR ACTIVOS
@@ -355,9 +354,10 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     ]
 
     # ==============================
-    # PASO 5 — FILTRO PARA TEMPLATE (SOLO DONDE HAY REPORTE)
+    # PASO 5 — FILTRO PARA TEMPLATE (SOLO DONDE REPORTE ES NULO)
     # ==============================
-    df_template_src = activos_filtrado[activos_filtrado["Reporte"].notna()].copy()
+    # Ojo: aquí usamos LOS NULOS de Reporte
+    df_template_src = activos_filtrado[activos_filtrado["Reporte"].isna()].copy()
 
     # ==============================
     # LIMPIAR NÚMERO DE NÓMINA → NÚMERO DE PERSONAL (SOLO PARA TEMPLATE)
@@ -404,7 +404,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     template_final["Subdivisión"] = "0001"
 
     # ==============================
-    # N° referencia externo = Reporte (número de póliza que SÍ coincidió)
+    # N° referencia externo = No. Póliza (de los que TENÍAN Reporte nulo)
     # ==============================
     col_template_ref_ext = None
     for c in template_final.columns:
@@ -412,9 +412,9 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
             col_template_ref_ext = c
             break
 
-    if col_template_ref_ext is not None:
+    if col_template_ref_ext is not None and col_poliza is not None:
         template_final[col_template_ref_ext] = (
-            df_template_src["Reporte"]
+            df_template_src[col_poliza]
             .astype("Int64")
             .astype(str)
             .str.replace("<NA>", "", regex=False)
@@ -485,13 +485,8 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     # ACTIVOS_FILTRADO DE SALIDA (REPORTE Y ACTIVOS GNP CON N/A)
     # ==============================
     activos_salida = activos_filtrado.copy()
-
-    # Reporte: poner N/A donde no hubo match
     activos_salida["Reporte"] = activos_salida["Reporte"].fillna("N/A")
-    # Activos GNP: N/A donde no hubo match
     activos_salida["Activos GNP"] = activos_salida["Activos GNP"].fillna("N/A")
-
-    # Formato de fecha de alta dd/mm/yyyy
     activos_salida[col_fecha_alta] = pd.to_datetime(
         activos_salida[col_fecha_alta], errors="coerce"
     ).dt.strftime("%d/%m/%Y")
