@@ -563,7 +563,7 @@ with tab_altas:
     parque_v_file = st.file_uploader("Parque vehicular ", type=["xlsx", "xls"], key="parque_altas")
     activos_file = st.file_uploader("Activos", type=["xlsx", "xls"], key="activos_altas")
     nomina_altas_file = st.file_uploader("Desectos o Nominas", type=["xlsx", "xls"], key="nomina_altas")
-    template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas"])
+    template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas")
 
     if all([parque_v_file, activos_file, nomina_altas_file, template_file]):
         parque_v_df = pd.read_excel(parque_v_file, sheet_name="Vigentes")
