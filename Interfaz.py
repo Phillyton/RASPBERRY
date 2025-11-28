@@ -539,7 +539,7 @@ with tab_bajas:
 
             consolidado = procesar_bajas(parque_df, cancelacion_df, cancelado_df, nomina_df)
             st.success("Consolidado de bajas generado correctamente.")
-            df_to_excel_download(consolidado, "consolidado de bajas")
+            df_to_excel_download(consolidado, "consolidado de bajas.xlsx")
     else:
         st.info("📂 Sube todos los archivos para poder generar el consolidado de bajas.")
 
@@ -570,12 +570,12 @@ with tab_altas:
             df_to_excel_download(
                 template_final_df,
                 "Template_de_Altas_generado.xlsx",
-                label="📥 Descargar Template de Altas"
+                label=" Descargar Template de Altas"
             )
             df_to_excel_download(
                 activos_salida_df,
                 "Activos_filtrados_altas.xlsx",
-                label="📥 Descargar Activos"
+                label=" Descargar Activos"
             )
     else:
         st.info("📂 Sube todos los archivos para poder generar el reporte de Altas.")
