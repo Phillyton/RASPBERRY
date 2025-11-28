@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from pandas import DateOffset
 from io import BytesIO
+from datetime import datetime 
 
 # =========================================
 # FUNCIONES DE PROCESO (BAJAS Y ALTAS)
@@ -256,6 +257,7 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
 
     return consolidado_bajas
 
+
 def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     # ==============================
     # PASO 1 — LIMPIAR ACTIVOS
@@ -356,7 +358,6 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     # ==============================
     # PASO 5 — FILTRO PARA TEMPLATE (SOLO DONDE REPORTE ES NULO)
     # ==============================
-    # Ojo: aquí usamos LOS NULOS de Reporte
     df_template_src = activos_filtrado[activos_filtrado["Reporte"].isna()].copy()
 
     # ==============================
@@ -495,14 +496,22 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
 
 
 def df_to_excel_download(df, filename, label=None):
+    # Añadir fecha de hoy al nombre del archivo: YYYY-MM-DD
+    today_str = datetime.today().strftime("%Y-%m-%d")
+    if "." in filename:
+        name, ext = filename.rsplit(".", 1)
+        file_name = f"{name}_{today_str}.{ext}"
+    else:
+        file_name = f"{filename}_{today_str}.xlsx"
+
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)
     buffer.seek(0)
     st.download_button(
-        label=label or f"📥 Descargar {filename}",
+        label=label or f"📥 Descargar {file_name}",
         data=buffer,
-        file_name=filename,
+        file_name=file_name,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
@@ -539,7 +548,7 @@ with tab_bajas:
 
             consolidado = procesar_bajas(parque_df, cancelacion_df, cancelado_df, nomina_df)
             st.success("Consolidado de bajas generado correctamente.")
-            df_to_excel_download(consolidado, "consolidado de bajas.xlsx")
+            df_to_excel_download(consolidado, "consolidado_de_bajas.xlsx")
     else:
         st.info("📂 Sube todos los archivos para poder generar el consolidado de bajas.")
 
