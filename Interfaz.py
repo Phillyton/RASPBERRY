@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from pandas import DateOffset
 from io import BytesIO
-from datetime import datetime 
+from datetime import datetime, timedelta   # 👈 aquí agregamos timedelta
 
 # =========================================
 # FUNCIONES DE PROCESO (BAJAS Y ALTAS)
@@ -496,20 +496,22 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
 
 
 def df_to_excel_download(df, filename, label=None):
+    # Forzar fecha tipo Monterrey (UTC-6) usando UTC - 6 horas
+    hoy_mty = (datetime.utcnow() - timedelta(hours=6)).strftime("%Y-%m-%d")
+
     # Fecha al inicio del nombre: YYYY-MM-DD_nombre.xlsx
-    today_str = datetime.today().strftime("%Y-%m-%d")
     if "." in filename:
         name, ext = filename.rsplit(".", 1)
-        file_name = f"{today_str}_{name}.{ext}"
+        file_name = f"{hoy_mty}_{name}.{ext}"
     else:
-        file_name = f"{today_str}_{filename}.xlsx"
+        file_name = f"{hoy_mty}_{filename}.xlsx"
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)
     buffer.seek(0)
     st.download_button(
-        label=label or f"📥 Descargar {file_name}",
+        label=label or f"📥 {file_name}",
         data=buffer,
         file_name=file_name,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -536,19 +538,21 @@ with tab_bajas:
     nomina_file = st.file_uploader("Desectos o nomina", type=["xlsx", "xls"], key="nomina_bajas")
 
     if all([parque_file, cancelacion_file, cancelado_file, nomina_file]):
-        if st.button("Procesar bajas"):
-            parque_df = pd.read_excel(parque_file, sheet_name="Anuladas")
-            cancelacion_df = pd.read_excel(cancelacion_file)
-            cancelado_df = pd.read_excel(cancelado_file)
-            nomina_df = pd.read_excel(nomina_file)
+        parque_df = pd.read_excel(parque_file, sheet_name="Anuladas")
+        cancelacion_df = pd.read_excel(cancelacion_file)
+        cancelado_df = pd.read_excel(cancelado_file)
+        nomina_df = pd.read_excel(nomina_file)
 
-            # limpiar columnas
-            for df in [parque_df, cancelacion_df, cancelado_df, nomina_df]:
-                df.columns = df.columns.str.strip()
+        for df in [parque_df, cancelacion_df, cancelado_df, nomina_df]:
+            df.columns = df.columns.str.strip()
 
-            consolidado = procesar_bajas(parque_df, cancelacion_df, cancelado_df, nomina_df)
-            st.success("Consolidado de bajas generado correctamente.")
-            df_to_excel_download(consolidado, "consolidado_de_bajas.xlsx")
+        consolidado = procesar_bajas(parque_df, cancelacion_df, cancelado_df, nomina_df)
+        st.success("Consolidado de bajas listo.")
+        df_to_excel_download(
+            consolidado,
+            "consolidado_de_bajas.xlsx",
+            label="🔻 Procesar y descargar bajas"
+        )
     else:
         st.info("📂 Sube todos los archivos para poder generar el consolidado de bajas.")
 
@@ -559,32 +563,31 @@ with tab_altas:
     parque_v_file = st.file_uploader("Parque vehicular ", type=["xlsx", "xls"], key="parque_altas")
     activos_file = st.file_uploader("Activos", type=["xlsx", "xls"], key="activos_altas")
     nomina_altas_file = st.file_uploader("Desectos o Nominas", type=["xlsx", "xls"], key="nomina_altas")
-    template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas")
+    template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas"])
 
     if all([parque_v_file, activos_file, nomina_altas_file, template_file]):
-        if st.button("Procesar altas"):
-            parque_v_df = pd.read_excel(parque_v_file, sheet_name="Vigentes")
-            activos_df = pd.read_excel(activos_file)
-            nomina_altas_df = pd.read_excel(nomina_altas_file)
-            template_df = pd.read_excel(template_file)
+        parque_v_df = pd.read_excel(parque_v_file, sheet_name="Vigentes")
+        activos_df = pd.read_excel(activos_file)
+        nomina_altas_df = pd.read_excel(nomina_altas_file)
+        template_df = pd.read_excel(template_file)
 
-            for df in [parque_v_df, activos_df, nomina_altas_df, template_df]:
-                df.columns = df.columns.str.strip()
+        for df in [parque_v_df, activos_df, nomina_altas_df, template_df]:
+            df.columns = df.columns.str.strip()
 
-            template_final_df, activos_salida_df = procesar_altas(
-                parque_v_df, activos_df, nomina_altas_df, template_df
-            )
+        template_final_df, activos_salida_df = procesar_altas(
+            parque_v_df, activos_df, nomina_altas_df, template_df
+        )
 
-            st.success("Template de Altas generado correctamente.")
-            df_to_excel_download(
-                template_final_df,
-                "Template_de_Altas_generado.xlsx",
-                label=" Descargar Template de Altas"
-            )
-            df_to_excel_download(
-                activos_salida_df,
-                "Activos_filtrados_altas.xlsx",
-                label=" Descargar Activos"
-            )
+        st.success("Altas listas para descargar.")
+        df_to_excel_download(
+            template_final_df,
+            "Template_de_Altas_generado.xlsx",
+            label="🔺 Procesar y descargar Template de Altas"
+        )
+        df_to_excel_download(
+            activos_salida_df,
+            "Activos_filtrados_altas.xlsx",
+            label="🔺 Procesar y descargar Activos"
+        )
     else:
         st.info("📂 Sube todos los archivos para poder generar el reporte de Altas.")
