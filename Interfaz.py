@@ -496,13 +496,13 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
 
 
 def df_to_excel_download(df, filename, label=None):
-    # Añadir fecha de hoy al nombre del archivo: YYYY-MM-DD
+    # Fecha al inicio del nombre: YYYY-MM-DD_nombre.xlsx
     today_str = datetime.today().strftime("%Y-%m-%d")
     if "." in filename:
         name, ext = filename.rsplit(".", 1)
-        file_name = f"{name}_{today_str}.{ext}"
+        file_name = f"{today_str}_{name}.{ext}"
     else:
-        file_name = f"{filename}_{today_str}.xlsx"
+        file_name = f"{today_str}_{filename}.xlsx"
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
