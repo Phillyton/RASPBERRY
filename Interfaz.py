@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from pandas import DateOffset
 from io import BytesIO
-from datetime import datetime, timedelta   # 👈 aquí agregamos timedelta
+from datetime import datetime 
 
 # =========================================
 # FUNCIONES DE PROCESO (BAJAS Y ALTAS)
@@ -496,15 +496,13 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
 
 
 def df_to_excel_download(df, filename, label=None):
-    # Forzar fecha tipo Monterrey (UTC-6) usando UTC - 6 horas
-    hoy_mty = (datetime.utcnow() - timedelta(hours=6)).strftime("%Y-%m-%d")
-
     # Fecha al inicio del nombre: YYYY-MM-DD_nombre.xlsx
+    today_str = datetime.today().strftime("%Y-%m-%d")
     if "." in filename:
         name, ext = filename.rsplit(".", 1)
-        file_name = f"{hoy_mty}_{name}.{ext}"
+        file_name = f"{today_str}_{name}.{ext}"
     else:
-        file_name = f"{hoy_mty}_{filename}.xlsx"
+        file_name = f"{today_str}_{filename}.xlsx"
 
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
@@ -538,6 +536,7 @@ with tab_bajas:
     nomina_file = st.file_uploader("Desectos o nomina", type=["xlsx", "xls"], key="nomina_bajas")
 
     if all([parque_file, cancelacion_file, cancelado_file, nomina_file]):
+        # Cargamos y limpiamos SI ya subiste todo
         parque_df = pd.read_excel(parque_file, sheet_name="Anuladas")
         cancelacion_df = pd.read_excel(cancelacion_file)
         cancelado_df = pd.read_excel(cancelado_file)
