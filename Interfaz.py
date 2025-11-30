@@ -532,20 +532,6 @@ st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
 # LOGO + TÍTULO alineados
 col_logo, col_title = st.columns([1, 6])
 
-with col_logo:
-    st.image("Logo de raspberry.jpg", width=120)
-
-with col_title:
-    st.markdown(
-        """
-        <h1 style="margin-top: 15px;">
-            Reportes Raspberry – Altas y Bajas
-        </h1>
-        """,
-        unsafe_allow_html=True
-    )
-
-
 st.title("Reportes Raspberry – Altas y Bajas")
 
 tab_bajas, tab_altas = st.tabs(["🔻 Reportes de Bajas", "🔺 Reportes de Altas"])
