@@ -529,6 +529,13 @@ def df_to_excel_download(df, filename, label=None):
 
 st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
 
+st.markdown("""
+    <div style="display:flex; align-items:center; gap:20px;">
+        <img src="Logo de raspberry.jpg" style="width:160px;">
+        <h1 style="margin:0; font-size:32px;">Reportes Raspberry – Altas y Bajas</h1>
+    </div>
+""", unsafe_allow_html=True)
+
 st.title("Reportes Raspberry – Altas y Bajas")
 
 tab_bajas, tab_altas = st.tabs(["🔻 Reportes de Bajas", "🔺 Reportes de Altas"])
