@@ -349,10 +349,10 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
 
     hoy = pd.Timestamp.today().normalize()
     primer_dia_mes_actual = hoy.replace(day=1)
-    primer_dia_hace_dos_meses = primer_dia_mes_actual - DateOffset(months=2)
+    primer_dia_hace_uno_meses = primer_dia_mes_actual - DateOffset(months=1)
 
     activos_filtrado = activos_filtrado[
-        activos_filtrado[col_fecha_alta] >= primer_dia_hace_dos_meses
+        activos_filtrado[col_fecha_alta] >= primer_dia_hace_uno_meses
     ]
 
     # ==============================
