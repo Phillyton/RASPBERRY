@@ -326,12 +326,6 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
 
 def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     # ==============================
-    # PASO 0 — CALCULAR VENTANA DE FECHAS SEGÚN CALENDARIO INTERNO
-    # ==============================
-    hoy = pd.Timestamp.today().normalize()
-    fecha_inicio_ventana, fecha_limite = obtener_ventana_altas_desde_calendario(hoy)
-
-    # ==============================
     # PASO 1 — LIMPIAR ACTIVOS
     # ==============================
     col_institucion = None
@@ -419,8 +413,8 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         dayfirst=True
     )
 
-    hoy2 = pd.Timestamp.today().normalize()
-    primer_dia_mes_actual = hoy2.replace(day=1)
+    hoy = pd.Timestamp.today().normalize()
+    primer_dia_mes_actual = hoy.replace(day=1)
     primer_dia_hace_dos_meses = primer_dia_mes_actual - DateOffset(months=2)
 
     activos_filtrado = activos_filtrado[
@@ -428,15 +422,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     ]
 
     # ==============================
-    # PASO 5 — APLICAR VENTANA DEL CALENDARIO (fecha_inicio_ventana → fecha_limite)
-    # ==============================
-    activos_filtrado = activos_filtrado[
-        (activos_filtrado[col_fecha_alta] >= fecha_inicio_ventana) &
-        (activos_filtrado[col_fecha_alta] <= fecha_limite)
-    ]
-
-    # ==============================
-    # PASO 6 — FILTRO PARA TEMPLATE (SOLO DONDE REPORTE ES NULO)
+    # PASO 5 — FILTRO PARA TEMPLATE (SOLO DONDE REPORTE ES NULO)
     # ==============================
     df_template_src = activos_filtrado[activos_filtrado["Reporte"].isna()].copy()
 
@@ -464,7 +450,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     )
 
     # ==============================
-    # PASO 7 — LLENAR TEMPLATE DE ALTAS (EN MEMORIA)
+    # PASO 6 — LLENAR TEMPLATE DE ALTAS (EN MEMORIA)
     # ==============================
     template_final = pd.DataFrame(
         index=range(len(df_template_src)),
@@ -503,13 +489,17 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         )
 
     # ==============================
-    # FECHAS CON LÓGICA DE QUINCENA (1 o 16)
+    # FECHAS CON LÓGICA DE QUINCENA (A LA QUINCENA SIGUIENTE)
     # ==============================
-    hoy3 = pd.Timestamp.today()
-    if hoy3.day <= 15:
-        fecha_quincena = hoy3.replace(day=1)
+    hoy2 = pd.Timestamp.today()
+
+    if hoy2.day <= 15:
+        # 1ª quincena → inicio de validez = 16 del mismo mes
+        fecha_quincena = hoy2.replace(day=16)
     else:
-        fecha_quincena = hoy3.replace(day=16)
+        # 2ª quincena → inicio de validez = 1 del mes siguiente
+        siguiente_mes = hoy2 + DateOffset(months=1)
+        fecha_quincena = siguiente_mes.replace(day=1)
 
     fecha_quincena_str = fecha_quincena.strftime("%d.%m.%Y")
 
