@@ -2,7 +2,73 @@ import streamlit as st
 import pandas as pd
 from pandas import DateOffset
 from io import BytesIO
-from datetime import datetime 
+from datetime import date, datetime, timedelta
+
+# =========================================
+# CONFIG: FECHAS DE CORTE POR AÑO
+# =========================================
+# Solo tienes que actualizar esta tabla cada año.
+# Para 2025 usé las fechas de tu archivo "FechaLimiteReporte".
+FECHAS_LIMITE_POR_ANO = {
+    2025: [
+        "2025-01-03",
+        "2025-01-21",
+        "2025-02-05",
+        "2025-02-18",
+        "2025-03-05",
+        "2025-03-19",
+        "2025-04-02",
+        "2025-04-11",
+        "2025-05-05",
+        "2025-05-21",
+        "2025-06-04",
+        "2025-06-18",
+        "2025-07-03",
+        "2025-07-21",
+        "2025-08-05",
+        "2025-08-20",
+        "2025-09-03",
+        "2025-09-18",
+        "2025-10-03",
+        "2025-10-20",
+        "2025-11-05",
+        "2025-11-19",
+        "2025-11-27",
+        # Última quincena que en tu calendario también usa 27/11
+        "2025-11-27",
+    ]
+}
+
+def obtener_ventana_altas_desde_calendario(hoy: datetime):
+    """
+    A partir de 'hoy':
+    - toma la FechaLimiteReporte más cercana hacia atrás (<= hoy)
+    - define ventana de ALTAS = últimos 10 días (incluyendo el día de corte)
+      ej: fecha_limite=27 -> ventana 18..27
+    """
+    year = hoy.year
+    if year not in FECHAS_LIMITE_POR_ANO:
+        # Si no hay fechas definidas para ese año, por default usa hoy como corte.
+        fecha_limite = hoy.normalize()
+    else:
+        fechas = [
+            pd.to_datetime(f, format="%Y-%m-%d")
+            for f in FECHAS_LIMITE_POR_ANO[year]
+        ]
+        fechas_series = pd.Series(fechas).sort_values()
+
+        # Fechas <= hoy
+        fechas_validas = fechas_series[fechas_series <= hoy]
+        if not fechas_validas.empty:
+            fecha_limite = fechas_validas.iloc[-1]
+        else:
+            # Si aún no se llega a la primera fecha límite del año,
+            # usamos la primera como corte.
+            fecha_limite = fechas_series.iloc[0]
+
+    # Ventana de 10 días (corte incluido)
+    fecha_inicio_ventana = fecha_limite - timedelta(days=9)
+    return fecha_inicio_ventana.normalize(), fecha_limite.normalize()
 
 # =========================================
 # FUNCIONES DE PROCESO (BAJAS Y ALTAS)
@@ -260,6 +326,12 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
 
 def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     # ==============================
+    # PASO 0 — CALCULAR VENTANA DE FECHAS SEGÚN CALENDARIO INTERNO
+    # ==============================
+    hoy = pd.Timestamp.today().normalize()
+    fecha_inicio_ventana, fecha_limite = obtener_ventana_altas_desde_calendario(hoy)
+
+    # ==============================
     # PASO 1 — LIMPIAR ACTIVOS
     # ==============================
     col_institucion = None
@@ -347,8 +419,8 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         dayfirst=True
     )
 
-    hoy = pd.Timestamp.today().normalize()
-    primer_dia_mes_actual = hoy.replace(day=1)
+    hoy2 = pd.Timestamp.today().normalize()
+    primer_dia_mes_actual = hoy2.replace(day=1)
     primer_dia_hace_dos_meses = primer_dia_mes_actual - DateOffset(months=2)
 
     activos_filtrado = activos_filtrado[
@@ -356,7 +428,15 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     ]
 
     # ==============================
-    # PASO 5 — FILTRO PARA TEMPLATE (SOLO DONDE REPORTE ES NULO)
+    # PASO 5 — APLICAR VENTANA DEL CALENDARIO (fecha_inicio_ventana → fecha_limite)
+    # ==============================
+    activos_filtrado = activos_filtrado[
+        (activos_filtrado[col_fecha_alta] >= fecha_inicio_ventana) &
+        (activos_filtrado[col_fecha_alta] <= fecha_limite)
+    ]
+
+    # ==============================
+    # PASO 6 — FILTRO PARA TEMPLATE (SOLO DONDE REPORTE ES NULO)
     # ==============================
     df_template_src = activos_filtrado[activos_filtrado["Reporte"].isna()].copy()
 
@@ -384,7 +464,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     )
 
     # ==============================
-    # PASO 6 — LLENAR TEMPLATE DE ALTAS (EN MEMORIA)
+    # PASO 7 — LLENAR TEMPLATE DE ALTAS (EN MEMORIA)
     # ==============================
     template_final = pd.DataFrame(
         index=range(len(df_template_src)),
@@ -423,13 +503,13 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         )
 
     # ==============================
-    # FECHAS CON LÓGICA DE QUINCENA
+    # FECHAS CON LÓGICA DE QUINCENA (1 o 16)
     # ==============================
-    hoy2 = pd.Timestamp.today()
-    if hoy2.day <= 15:
-        fecha_quincena = hoy2.replace(day=1)
+    hoy3 = pd.Timestamp.today()
+    if hoy3.day <= 15:
+        fecha_quincena = hoy3.replace(day=1)
     else:
-        fecha_quincena = hoy2.replace(day=16)
+        fecha_quincena = hoy3.replace(day=16)
 
     fecha_quincena_str = fecha_quincena.strftime("%d.%m.%Y")
 
@@ -495,23 +575,23 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     return template_final, activos_salida
 
 
-def df_to_excel_download(df, filename, label=None):
-    # Fecha al inicio del nombre: YYYY-MM-DD_nombre.xlsx
-    today_str = datetime.today().strftime("%Y-%m-%d")
-    if "." in filename:
-        name, ext = filename.rsplit(".", 1)
-        file_name = f"{today_str}_{name}.{ext}"
-    else:
-        file_name = f"{today_str}_{filename}.xlsx"
+# =========================================
+# HELPER: DESCARGA CON FECHA EN EL NOMBRE
+# =========================================
 
+def df_to_excel_download(df, base_filename, label=None):
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)
     buffer.seek(0)
+
+    today_str = date.today().strftime("%Y-%m-%d")
+    filename = f"{today_str}_{base_filename}"
+
     st.download_button(
-        label=label or f"📥 Descargar {file_name}",
+        label=label or f"📥 Descargar {filename}",
         data=buffer,
-        file_name=file_name,
+        file_name=filename,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
@@ -587,4 +667,4 @@ with tab_altas:
                 label=" Descargar Activos"
             )
     else:
-        st.info("📂 Sube todos los archivos para poder generar el reporte de Altas.")
+        st.info("📂 Sube Parque, Activos, Nómina y Template para generar el reporte de Altas.")
