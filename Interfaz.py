@@ -527,10 +527,9 @@ def df_to_excel_download(df, filename, label=None):
 # APP STREAMLIT
 # =========================================
 
-st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
+st.set_page_config( st.image("Logo de raspberry.jpg", width=120) ,page_title="Raspberry – Altas y Bajas", layout="wide")
 
-# LOGO + TÍTULO alineados
-col_logo, col_title = st.columns([1, 6])
+
 
 st.title("Reportes Raspberry – Altas y Bajas")
 
