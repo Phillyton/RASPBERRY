@@ -532,17 +532,78 @@ st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
 st.title("Reportes Raspberry – Altas y Bajas")
 
 tab_bajas, tab_altas = st.tabs(["🔻 Reportes de Bajas", "🔺 Reportes de Altas"])
+# ---- CSS simple para darle forma de tarjetas a los uploaders ----
+st.markdown(
+    """
+    <style>
+    .upload-card {
+        border: 1px solid #21c25e;
+        border-radius: 10px;
+        padding: 12px 16px;
+        margin-bottom: 14px;
+        background-color: #0e1117;
+    }
+    .upload-title {
+        font-weight: 600;
+        font-size: 1rem;
+        margin-bottom: 6px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # ---------------- TAB BAJAS ----------------
 with tab_bajas:
     st.subheader("Consolidado de Bajas")
 
-    parque_file = st.file_uploader("Parque vehicular", type=["xlsx", "xls"], key="parque_bajas")
-    cancelacion_file = st.file_uploader("Cancelación", type=["xlsx", "xls"], key="cancelacion_bajas")
-    cancelado_file = st.file_uploader("Cancelado", type=["xlsx", "xls"], key="cancelado_bajas")
-    nomina_file = st.file_uploader("Desectos o nomina", type=["xlsx", "xls"], key="nomina_bajas")
+    # ---------- PRIMERA FILA (Parque / Cancelación) ----------
+    col_parque, col_cancelacion = st.columns(2)
 
-    # 🕒 Momento en que ya se tienen todos los archivos cargados
+    with col_parque:
+        st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title">Parque</div>', unsafe_allow_html=True)
+        parque_file = st.file_uploader(
+            "Selecciona archivo de Parque",
+            type=["xlsx", "xls"],
+            key="parque_bajas"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_cancelacion:
+        st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title">Cancelación</div>', unsafe_allow_html=True)
+        cancelacion_file = st.file_uploader(
+            "Selecciona archivo de Cancelación",
+            type=["xlsx", "xls"],
+            key="cancelacion_bajas"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---------- SEGUNDA FILA (Desectos / Cancelado) ----------
+    col_desecto, col_cancelado = st.columns(2)
+
+    with col_desecto:
+        st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title">Desecto / Nómina</div>', unsafe_allow_html=True)
+        nomina_file = st.file_uploader(
+            "Selecciona archivo de Desectos o Nómina",
+            type=["xlsx", "xls"],
+            key="nomina_bajas"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_cancelado:
+        st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title">Cancelado</div>', unsafe_allow_html=True)
+        cancelado_file = st.file_uploader(
+            "Selecciona archivo de Cancelado",
+            type=["xlsx", "xls"],
+            key="cancelado_bajas"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---------- LÓGICA DE PROCESO (igual que antes) ----------
     if all([parque_file, cancelacion_file, cancelado_file, nomina_file]):
         if "bajas_upload_time" not in st.session_state:
             st.session_state.bajas_upload_time = datetime.now()
@@ -577,58 +638,3 @@ with tab_bajas:
             df_to_excel_download(consolidado, "consolidado_de_bajas.xlsx", label="📥 Descargar bajas")
     else:
         st.info("📂 Sube todos los archivos para poder generar el consolidado de bajas.")
-
-# ---------------- TAB ALTAS ----------------
-with tab_altas:
-    st.subheader("Template de Altas")
-
-    parque_v_file = st.file_uploader("Parque vehicular ", type=["xlsx", "xls"], key="parque_altas")
-    activos_file = st.file_uploader("Activos", type=["xlsx", "xls"], key="activos_altas")
-    nomina_altas_file = st.file_uploader("Desectos o Nominas", type=["xlsx", "xls"], key="nomina_altas")
-    template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas")
-
-    if all([parque_v_file, activos_file, nomina_altas_file, template_file]):
-        if "altas_upload_time" not in st.session_state:
-            st.session_state.altas_upload_time = datetime.now()
-
-        st.info(
-            f"📂 Archivos de ALTAS cargados el: "
-            f"{st.session_state.altas_upload_time:%Y-%m-%d %H:%M:%S}"
-        )
-
-        if st.button("Procesar altas"):
-            start_time = datetime.now()
-            st.session_state.altas_start_time = start_time
-
-            parque_v_df = pd.read_excel(parque_v_file, sheet_name="Vigentes")
-            activos_df = pd.read_excel(activos_file)
-            nomina_altas_df = pd.read_excel(nomina_altas_file)
-            template_df = pd.read_excel(template_file)
-
-            for df in [parque_v_df, activos_df, nomina_altas_df, template_df]:
-                df.columns = df.columns.str.strip()
-
-            template_final_df, activos_salida_df = procesar_altas(
-                parque_v_df, activos_df, nomina_altas_df, template_df
-            )
-
-            end_time = datetime.now()
-            st.session_state.altas_end_time = end_time
-
-            st.success("Template de Altas generado correctamente.")
-            st.write(f"⏱ Inicio del proceso: {start_time:%Y-%m-%d %H:%M:%S}")
-            st.write(f"✅ Fin del proceso: {end_time:%Y-%m-%d %H:%M:%S}")
-            st.write(f"⌛ Duración: {(end_time - start_time).total_seconds():.1f} segundos")
-
-            df_to_excel_download(
-                template_final_df,
-                "Template_de_Altas_generado.xlsx",
-                label="📥 Descargar Template de Altas"
-            )
-            df_to_excel_download(
-                activos_salida_df,
-                "Activos_filtrados_altas.xlsx",
-                label="📥 Descargar Activos"
-            )
-    else:
-        st.info("📂 Sube todos los archivos para poder generar el reporte de Altas.")
