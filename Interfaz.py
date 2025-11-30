@@ -532,7 +532,8 @@ def df_to_excel_download(df, filename, label=None):
 st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
 
 # ========= LOGO =========
-logo_path = Path("C:\Users\leona\OneDrive\Documentos\RASPBERRY\Nueva carpeta\Logo de raspberry.jpg")  
+logo_path = Path(r"C:\Users\leona\OneDrive\Documentos\RASPBERRY\Nueva carpeta\Logo de raspberry.jpg")
+  
 
 header_cols = st.columns([1, 5])
 with header_cols[0]:
