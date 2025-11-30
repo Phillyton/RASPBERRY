@@ -3,6 +3,7 @@ import pandas as pd
 from pandas import DateOffset
 from io import BytesIO
 from datetime import datetime
+from pathlib import Path
 
 # =========================================
 # FUNCIONES DE PROCESO (BAJAS Y ALTAS)
@@ -526,6 +527,17 @@ def df_to_excel_download(df, filename, label=None):
 # =========================================
 # APP STREAMLIT
 # =========================================
+
+logo_path = Path("logo.png")
+
+st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
+
+# Encabezado con logo
+cols = st.columns([1, 5])
+with cols[0]:
+    st.image(logo_path, width=140)
+with cols[1]:
+    st.title("Reportes Raspberry – Altas y Bajas")
 
 st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
 
