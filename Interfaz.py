@@ -5,98 +5,47 @@ from io import BytesIO
 from datetime import datetime
 
 # =========================================
+# CALENDARIOS DE NÓMINA HARDCODEADOS
+# =========================================
+# Puedes editar/añadir años aquí cuando cambie el calendario.
+
+CALENDARIOS = {
+    2025: [
+        #  FECHA_FIN    , FechaLimiteReporte
+        ("2025-01-03", "2025-01-03"),
+        ("2025-01-21", "2025-01-21"),
+        ("2025-02-05", "2025-02-05"),
+        ("2025-02-18", "2025-02-18"),
+        ("2025-03-05", "2025-03-05"),
+        ("2025-03-19", "2025-03-19"),
+        ("2025-04-02", "2025-04-02"),
+        ("2025-04-11", "2025-04-11"),
+        ("2025-05-05", "2025-05-05"),
+        ("2025-05-21", "2025-05-21"),
+        ("2025-06-04", "2025-06-04"),
+        ("2025-06-18", "2025-06-18"),
+        ("2025-07-03", "2025-07-03"),
+        ("2025-07-21", "2025-07-21"),
+        ("2025-08-05", "2025-08-05"),
+        ("2025-08-20", "2025-08-20"),
+        ("2025-09-03", "2025-09-03"),
+        ("2025-09-18", "2025-09-18"),
+        ("2025-10-03", "2025-10-03"),
+        ("2025-10-20", "2025-10-20"),
+        ("2025-11-05", "2025-11-05"),
+        ("2025-11-19", "2025-11-19"),
+        ("2025-11-27", "2025-11-27"),
+        ("2025-12-31", "2025-12-31"),
+    ]
+}
+
+
+# =========================================
 # FUNCIONES DE PROCESO (BAJAS Y ALTAS)
 # =========================================
 
-# ============================================================
-# CALENDARIO INTERNO 2025 (ALTAS)
-# ============================================================
-
-def obtener_calendario_2025():
-    """
-    Calendario interno de quincenas 2025.
-    Si cambia el calendario, solo actualiza esta tabla.
-    """
-    data = [
-        {"ini": "2025-01-01", "fin": "2025-01-03", "lim": "2025-01-03"},
-        {"ini": "2025-01-04", "fin": "2025-01-21", "lim": "2025-01-21"},
-        {"ini": "2025-01-22", "fin": "2025-02-05", "lim": "2025-02-05"},
-        {"ini": "2025-02-06", "fin": "2025-02-18", "lim": "2025-02-18"},
-        {"ini": "2025-02-19", "fin": "2025-03-05", "lim": "2025-03-05"},
-        {"ini": "2025-03-06", "fin": "2025-03-19", "lim": "2025-03-19"},
-        {"ini": "2025-03-20", "fin": "2025-04-02", "lim": "2025-04-02"},
-        {"ini": "2025-04-03", "fin": "2025-04-11", "lim": "2025-04-11"},
-        {"ini": "2025-04-12", "fin": "2025-05-05", "lim": "2025-05-05"},
-        {"ini": "2025-05-06", "fin": "2025-05-21", "lim": "2025-05-21"},
-        {"ini": "2025-05-22", "fin": "2025-06-04", "lim": "2025-06-04"},
-        {"ini": "2025-06-05", "fin": "2025-06-18", "lim": "2025-06-18"},
-        {"ini": "2025-06-19", "fin": "2025-07-03", "lim": "2025-07-03"},
-        {"ini": "2025-07-04", "fin": "2025-07-21", "lim": "2025-07-21"},
-        {"ini": "2025-07-22", "fin": "2025-08-05", "lim": "2025-08-05"},
-        {"ini": "2025-08-06", "fin": "2025-08-20", "lim": "2025-08-20"},
-        {"ini": "2025-08-21", "fin": "2025-09-03", "lim": "2025-09-03"},
-        {"ini": "2025-09-04", "fin": "2025-09-18", "lim": "2025-09-18"},
-        {"ini": "2025-09-19", "fin": "2025-10-03", "lim": "2025-10-03"},
-        {"ini": "2025-10-04", "fin": "2025-10-21", "lim": "2025-10-20"},
-        {"ini": "2025-10-22", "fin": "2025-11-05", "lim": "2025-11-05"},
-        {"ini": "2025-11-06", "fin": "2025-11-19", "lim": "2025-11-19"},
-        {"ini": "2025-11-20", "fin": "2025-11-27", "lim": "2025-11-27"},
-        {"ini": "2025-11-28", "fin": "2025-12-31", "lim": "2025-11-27"},
-    ]
-    df = pd.DataFrame(data)
-    df["ini"] = pd.to_datetime(df["ini"])
-    df["fin"] = pd.to_datetime(df["fin"])
-    df["lim"] = pd.to_datetime(df["lim"])
-    return df
-
-
-def calcular_ventana_altas(fecha_hoy: pd.Timestamp):
-    """
-    Calcula la ventana de fechas para ALTAS según el calendario 2025.
-
-    Devuelve:
-      - fecha_inicio ventana
-      - fecha_fin ventana
-      - fila de calendario usada (para la fecha de corte)
-    """
-    cal = obtener_calendario_2025().sort_values("lim").reset_index(drop=True)
-
-    # Buscar la primera fila cuyo limite >= hoy
-    mask = cal["lim"] >= fecha_hoy
-    if mask.any():
-        idx = mask.idxmax()          # índice de la primera fila elegible
-        fila_corte = cal.loc[idx]
-
-        if idx == 0:
-            fecha_inicio = fila_corte["ini"]
-        else:
-            fecha_inicio = cal.loc[idx - 1, "fin"] + pd.Timedelta(days=1)
-
-        fecha_fin = fila_corte["lim"]
-    else:
-        # Estamos después del último corte del año:
-        # tomamos como corte la ÚLTIMA fila del calendario,
-        # y la ventana es desde el fin de la penúltima hasta el fin de la última.
-        last_idx = len(cal) - 1
-        fila_corte = cal.loc[last_idx]
-        fecha_inicio = cal.loc[last_idx - 1, "fin"] + pd.Timedelta(days=1)
-        fecha_fin = fila_corte["fin"]   # hasta fin de año
-
-    # Normalizar (sin hora) y asegurar ventana válida
-    fecha_inicio = fecha_inicio.normalize()
-    fecha_fin = fecha_fin.normalize()
-    if fecha_inicio > fecha_fin:
-        # Por seguridad, si algo raro pasa, hacemos ventana de un mes hacia atrás
-        fecha_inicio = fecha_fin - DateOffset(days=30)
-
-    return fecha_inicio, fecha_fin, fila_corte
-
-
-# ============================================================
-# BAJAS
-# ============================================================
-
 def procesar_bajas(parque, cancelacion, cancelado, nomina):
+    # -------------------- CREAR COLUMNAS NUEVAS EN NOMINA --------------------
     columnas_nuevas = [
         "Cancelado",
         "Fecha de cancelado",
@@ -109,13 +58,16 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
         if col not in nomina.columns:
             nomina[col] = None
 
+    # -------------------- PASO 2: LLENAR "CANCELADO" Y "FECHA DE CANCELADO" --------------------
     COL_LLAVE_NOMINA    = "Nº ref.externo"
     COL_LLAVE_CANCELADO = "No. Póliza"
     COL_FECHA_BAJA_OP   = "Fecha de Baja Operativa"
 
+    # 1) Normalizar llaves como texto
     for df, col in [(nomina, COL_LLAVE_NOMINA), (cancelado, COL_LLAVE_CANCELADO)]:
         df[col] = df[col].astype(str).str.strip()
 
+    # 2) Preparar cancelado: convertir fechas y eliminar duplicados
     cancelado_tmp = cancelado.copy()
     cancelado_tmp[COL_FECHA_BAJA_OP] = pd.to_datetime(
         cancelado_tmp[COL_FECHA_BAJA_OP], errors="coerce"
@@ -128,22 +80,29 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
         .set_index(COL_LLAVE_CANCELADO)
     )
 
+    # Serie tipo BUSCARV: póliza → póliza
     serie_poliza = pd.Series(cancelado_tmp.index, index=cancelado_tmp.index)
 
+    # 3) Llenar "Cancelado"
     nomina["Cancelado"] = nomina[COL_LLAVE_NOMINA].map(serie_poliza)
+
+    # 4) Llenar "Fecha de cancelado"
     nomina["Fecha de cancelado"] = nomina[COL_LLAVE_NOMINA].map(
         cancelado_tmp[COL_FECHA_BAJA_OP]
     )
 
+    # -------------------- BACKUP ANTES DE ELIMINAR FILAS --------------------
     df_nomina_cancelaciones_antes_de_eliminar = nomina.copy()
     df_nomina_cancelaciones_antes_de_eliminar = df_nomina_cancelaciones_antes_de_eliminar.drop(
         columns=["Cancelado", "Fecha de cancelado"],
         errors="ignore"
     )
 
+    # -------------------- FILTRAR SOLO FILAS DONDE SI EXISTE CANCELADO --------------------
     nomina["Cancelado"] = nomina["Cancelado"].replace("", pd.NA)
     nomina = nomina[nomina["Cancelado"].notna()]
 
+    # -------------------- ELIMINAR FILAS CON VALORES NEGATIVOS O 0 --------------------
     columnas_valores = ["SaldoIni", "DesctPer", "SaldoFin"]
 
     for col in columnas_valores:
@@ -156,6 +115,7 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
         (nomina["SaldoFin"] > 0)
     ]
 
+    # -------------------- FORMATEAR TODAS LAS FECHAS --------------------
     columnas_fecha = [
         "FePago",
         "InicioPer",
@@ -172,10 +132,14 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
                 nomina[col], errors="coerce"
             ).dt.strftime("%d/%m/%Y")
 
+    # -------------------- ELIMINAR COLUMNAS TOTALMENTE VACÍAS --------------------
     columnas_vacias = [col for col in nomina.columns if nomina[col].isna().all()]
     if columnas_vacias:
         nomina.drop(columns=columnas_vacias, inplace=True)
 
+    # ============================================================
+    # PASO 3: LLENAR "Cancelación" Y "Fecha de Cancelación"
+    # ============================================================
     df_cancelacion_nomina = df_nomina_cancelaciones_antes_de_eliminar.copy()
 
     COL_LLAVE_NOMINA_CANC  = "Nº ref.externo"
@@ -212,6 +176,7 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
     df_cancelacion_nomina["Cancelación"] = df_cancelacion_nomina["Cancelación"].replace("", pd.NA)
     df_cancelacion_nomina = df_cancelacion_nomina[df_cancelacion_nomina["Cancelación"].notna()]
 
+    # Limpiar negativos/ceros en Cancelación
     columnas_valores_cancelacion = ["SaldoIni", "DesctPer", "SaldoFin"]
     for col in columnas_valores_cancelacion:
         if col in df_cancelacion_nomina.columns:
@@ -225,6 +190,7 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
         (df_cancelacion_nomina["SaldoFin"] > 0)
     ]
 
+    # Formatear fechas Cancelación
     columnas_fechas_cancelacion = [
         "FePago",
         "InicioPer",
@@ -246,6 +212,9 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
     if columnas_vacias_canc:
         df_cancelacion_nomina.drop(columns=columnas_vacias_canc, inplace=True)
 
+    # ============================================================
+    # PASO 4: LLENAR "Anulados GNP" USANDO PARQUE (HOJA ANULADAS)
+    # ============================================================
     df_anulados_nomina = df_nomina_cancelaciones_antes_de_eliminar.copy()
 
     COL_LLAVE_NOMINA_ANU  = "Nº ref.externo"
@@ -285,11 +254,15 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
             (df_anulados_nomina["SaldoFin"] > 0)
         ]
 
+    # Borrar columnas de Cancelación en Anulados
     df_anulados_nomina = df_anulados_nomina.drop(
         columns=["Cancelación", "Fecha de Cancelación"],
         errors="ignore"
     )
 
+    # ============================================================
+    # PASO 5: CONSOLIDADO DE BAJAS
+    # ============================================================
     df_cancelado_consol   = nomina.copy()
     df_cancelacion_consol = df_cancelacion_nomina.copy()
     df_anulados_consol    = df_anulados_nomina.copy()
@@ -321,12 +294,14 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
     return consolidado_bajas
 
 
-# ============================================================
-# ALTAS (CON CALENDARIO 2025)
-# ============================================================
-
 def procesar_altas(parque_vigentes, activos, nomina, template_altas):
+    """
+    Altas con calendario interno (CALENDARIOS).
+    """
+
+    # ==============================
     # PASO 1 — LIMPIAR ACTIVOS
+    # ==============================
     col_institucion = None
     for c in activos.columns:
         if c.strip().lower() == "institución".lower():
@@ -357,12 +332,16 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     else:
         raise ValueError("⚠ No encontré 'No. Póliza' en Activos_filtrado")
 
+    # ==============================
     # PASO 2 — AGREGAR COLUMNAS NUEVAS
+    # ==============================
     for col in ["Reporte", "Activos GNP"]:
         if col not in activos_filtrado.columns:
             activos_filtrado[col] = None
 
+    # ==============================
     # PASO 3 — LLENAR Reporte y Activos GNP
+    # ==============================
     col_ref_nomina = None
     for c in nomina.columns:
         if c.strip().lower() == "nº ref.externo".lower():
@@ -386,10 +365,14 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     valores_nomina = set(llave_nomina.dropna())
     valores_parque = set(llave_parque.dropna())
 
+    # Reporte = está en nómina
     activos_filtrado["Reporte"] = llave_activos.where(llave_activos.isin(valores_nomina), pd.NA)
+    # Activos GNP = está en parque
     activos_filtrado["Activos GNP"] = llave_activos.where(llave_activos.isin(valores_parque), pd.NA)
 
-    # PASO 4 — VENTANA DE FECHAS SEGÚN CALENDARIO INTERNO
+    # ==============================
+    # PASO 4 — FILTRAR POR FECHAS USANDO CALENDARIO INTERNO
+    # ==============================
     col_fecha_alta = None
     for c in activos_filtrado.columns:
         if c.strip().lower() == "fecha de alta":
@@ -405,17 +388,54 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     )
 
     hoy = pd.Timestamp.today().normalize()
-    ventana_inicio, ventana_fin, fila_corte = calcular_ventana_altas(hoy)
+    anio = hoy.year
+
+    if anio in CALENDARIOS:
+        cal = pd.DataFrame(CALENDARIOS[anio], columns=["FECHA_FIN", "FechaLimiteReporte"])
+        cal["FECHA_FIN"] = pd.to_datetime(cal["FECHA_FIN"])
+        cal["FechaLimiteReporte"] = pd.to_datetime(cal["FechaLimiteReporte"])
+
+        cal = cal.sort_values("FechaLimiteReporte")
+
+        # Quincena actual: primera con FechaLimiteReporte >= hoy
+        mask_actual = cal["FechaLimiteReporte"] >= hoy
+        if mask_actual.any():
+            idx_actual = cal[mask_actual].index[0]
+        else:
+            idx_actual = cal.index[-1]
+
+        idx_list = list(cal.index)
+        pos_actual = idx_list.index(idx_actual)
+
+        if pos_actual > 0:
+            idx_prev = idx_list[pos_actual - 1]
+            fecha_fin_prev = cal.loc[idx_prev, "FECHA_FIN"]
+            # Ventana inicia un día ANTES de la fecha fin previa
+            fecha_inicio_ventana = fecha_fin_prev - pd.Timedelta(days=1)
+        else:
+            # Si estamos en la primera quincena del año,
+            # toma ventana de 15 días hacia atrás
+            fecha_inicio_ventana = cal.loc[idx_actual, "FECHA_FIN"] - DateOffset(days=15)
+
+        fecha_fin_ventana = cal.loc[idx_actual, "FechaLimiteReporte"]
+    else:
+        # Respaldo: últimos 2 meses si no hay calendario para ese año
+        primer_dia_mes_actual = hoy.replace(day=1)
+        fecha_inicio_ventana = primer_dia_mes_actual - DateOffset(months=2)
+        fecha_fin_ventana = hoy
 
     activos_filtrado = activos_filtrado[
-        (activos_filtrado[col_fecha_alta] >= ventana_inicio) &
-        (activos_filtrado[col_fecha_alta] <= ventana_fin)
+        activos_filtrado[col_fecha_alta].between(fecha_inicio_ventana, fecha_fin_ventana, inclusive="both")
     ]
 
+    # ==============================
     # PASO 5 — FILTRO PARA TEMPLATE (SOLO DONDE REPORTE ES NULO)
+    # ==============================
     df_template_src = activos_filtrado[activos_filtrado["Reporte"].isna()].copy()
 
+    # ==============================
     # LIMPIAR NÚMERO DE NÓMINA → NÚMERO DE PERSONAL
+    # ==============================
     col_num_nomina = None
     for c in df_template_src.columns:
         if "nomina" in c.lower() or "nómina" in c.lower():
@@ -436,7 +456,9 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         errors="coerce"
     )
 
-    # PASO 6 — LLENAR TEMPLATE DE ALTAS (EN MEMORIA)
+    # ==============================
+    # PASO 6 — LLENAR TEMPLATE DE ALTAS
+    # ==============================
     template_final = pd.DataFrame(
         index=range(len(df_template_src)),
         columns=template_altas.columns
@@ -445,19 +467,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     if "Número de personal" in template_final.columns:
         template_final["Número de personal"] = df_template_src["NumeroPersonalLimpio"].values
 
-    # FECHA DE CORTE → INICIO DE LA VALIDEZ (SIGUIENTE QUINCENA)
-    fecha_corte = fila_corte["lim"]
-
-    if fecha_corte.day <= 15:
-        inicio_validez = fecha_corte.replace(day=16)
-    else:
-        if fecha_corte.month == 12:
-            inicio_validez = fecha_corte.replace(year=fecha_corte.year + 1, month=1, day=1)
-        else:
-            inicio_validez = fecha_corte.replace(month=fecha_corte.month + 1, day=1)
-
-    inicio_validez_str = inicio_validez.strftime("%d.%m.%Y")
-
+    # Valores fijos
     template_final["Tipo de carga"] = "C"
     template_final["Fin de validez"] = "31.12.9999"
     template_final["Cc-nómina"] = "3353"
@@ -466,19 +476,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     template_final["Texto"] = "Seguro de Automóvil altas NOM"
     template_final["Subdivisión"] = "0001"
 
-    if "Inicio de la validez" in template_final.columns:
-        template_final["Inicio de la validez"] = inicio_validez_str
-
-    columnas_quincena = [
-        "Fecha de la autorización",
-        "Inicio de Amortización",
-        "Fecha de Pago"
-    ]
-    for col in columnas_quincena:
-        if col in template_final.columns:
-            template_final[col] = inicio_validez_str
-
-    # N° referencia externo = No. Póliza
+    # N° referencia externo = No. Póliza (de los que TENÍAN Reporte nulo)
     col_template_ref_ext = None
     for c in template_final.columns:
         if "referencia" in c.lower() and "externo" in c.lower():
@@ -494,7 +492,35 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
             .values
         )
 
+    # ==============================
+    # FECHAS CON LÓGICA DE QUINCENA (HACIA ADELANTE)
+    # ==============================
+    hoy2 = pd.Timestamp.today()
+    if hoy2.day <= 15:
+        # 1a quincena → 16 del mismo mes
+        fecha_quincena = hoy2.replace(day=16)
+    else:
+        # 2a quincena → 01 del mes siguiente
+        siguiente_mes = hoy2 + DateOffset(months=1)
+        fecha_quincena = siguiente_mes.replace(day=1)
+
+    fecha_quincena_str = fecha_quincena.strftime("%d.%m.%Y")
+
+    if "Inicio de la validez" in template_final.columns:
+        template_final["Inicio de la validez"] = fecha_quincena_str
+
+    columnas_quincena = [
+        "Fecha de la autorización",
+        "Inicio de Amortización",
+        "Fecha de Pago"
+    ]
+    for col in columnas_quincena:
+        if col in template_final.columns:
+            template_final[col] = fecha_quincena_str
+
+    # ==============================
     # IMPORTE DE PRÉSTAMO AUTORIZADO
+    # ==============================
     col_importe_origen = None
     for c in df_template_src.columns:
         if c.strip().lower() == "precio a fin de vigencia".lower():
@@ -507,11 +533,13 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     if col_importe_destino in template_final.columns:
         template_final[col_importe_destino] = df_template_src[col_importe_origen].values
 
+    # ==============================
     # AMORTIZACIÓN
-    quincenas_restantes = 0
-    mes_inicio = inicio_validez.month
-    dia_inicio = inicio_validez.day
+    # ==============================
+    mes_inicio = fecha_quincena.month
+    dia_inicio = fecha_quincena.day
 
+    quincenas_restantes = 0
     for mes in range(mes_inicio, 13):
         if mes == mes_inicio:
             if dia_inicio == 1:
@@ -527,7 +555,9 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
         if quincenas_restantes > 0:
             template_final[col_amortizacion] = (importe_num / quincenas_restantes).round(2)
 
+    # ==============================
     # ACTIVOS_FILTRADO DE SALIDA (REPORTE Y ACTIVOS GNP CON N/A)
+    # ==============================
     activos_salida = activos_filtrado.copy()
     activos_salida["Reporte"] = activos_salida["Reporte"].fillna("N/A")
     activos_salida["Activos GNP"] = activos_salida["Activos GNP"].fillna("N/A")
@@ -538,23 +568,23 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     return template_final, activos_salida
 
 
-# ============================================================
-# UTILIDAD PARA DESCARGAR EXCEL CON FECHA EN EL NOMBRE
-# ============================================================
+# =========================================
+# DESCARGA A EXCEL (CON FECHA EN EL NOMBRE)
+# =========================================
 
-def df_to_excel_download(df, filename, label=None):
+def df_to_excel_download(df, base_filename, label=None):
     buffer = BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)
     buffer.seek(0)
 
-    today_str = datetime.today().strftime("%Y-%m-%d")
-    filename_with_date = f"{today_str}_{filename}"
+    today_str = datetime.now().strftime("%Y-%m-%d")
+    filename = f"{today_str}_{base_filename}"
 
     st.download_button(
-        label=label or f"📥 Descargar {filename}",
+        label=label or f"📥 Descargar {base_filename}",
         data=buffer,
-        file_name=filename_with_date,
+        file_name=filename,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
@@ -585,6 +615,7 @@ with tab_bajas:
             cancelado_df = pd.read_excel(cancelado_file)
             nomina_df = pd.read_excel(nomina_file)
 
+            # limpiar columnas
             for df in [parque_df, cancelacion_df, cancelado_df, nomina_df]:
                 df.columns = df.columns.str.strip()
 
@@ -600,7 +631,7 @@ with tab_altas:
 
     parque_v_file = st.file_uploader("Parque vehicular", type=["xlsx", "xls"], key="parque_altas")
     activos_file = st.file_uploader("Activos", type=["xlsx", "xls"], key="activos_altas")
-    nomina_altas_file = st.file_uploader("Desectos o nóminas", type=["xlsx", "xls"], key="nomina_altas")
+    nomina_altas_file = st.file_uploader("Desectos o nómina", type=["xlsx", "xls"], key="nomina_altas")
     template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas")
 
     if all([parque_v_file, activos_file, nomina_altas_file, template_file]):
