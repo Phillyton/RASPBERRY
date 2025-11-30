@@ -149,8 +149,8 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
             )
 
     df_cancelacion_nomina = df_cancelacion_nomina[
-        (df_cancelacion_nomina["SaldoIni"]  > 0) &
-        (df_cancelacion_nomina["DesctPer"] > 0) &
+        (df_cancelacion_nomina["SaldoIni"]  > 0) & 
+        (df_cancelacion_nomina["DesctPer"] > 0) & 
         (df_cancelacion_nomina["SaldoFin"] > 0)
     ]
 
@@ -213,8 +213,8 @@ def procesar_bajas(parque, cancelacion, cancelado, nomina):
 
     if all(col in df_anulados_nomina.columns for col in columnas_valores_anulados):
         df_anulados_nomina = df_anulados_nomina[
-            (df_anulados_nomina["SaldoIni"]  > 0) &
-            (df_anulados_nomina["DesctPer"] > 0) &
+            (df_anulados_nomina["SaldoIni"]  > 0) & 
+            (df_anulados_nomina["DesctPer"] > 0) & 
             (df_anulados_nomina["SaldoFin"] > 0)
         ]
 
@@ -331,7 +331,7 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
     activos_filtrado["Activos GNP"] = llave_activos.where(llave_activos.isin(valores_parque), pd.NA)
 
     # ==============================
-    # PASO 4 — FILTRAR ÚLTIMOS 2 MESES COMPLETOS (Fecha de Alta)
+    # PASO 4 — FILTRAR ÚLTIMO MES COMPLETO (Fecha de Alta)
     # ==============================
     col_fecha_alta = None
     for c in activos_filtrado.columns:
@@ -349,10 +349,10 @@ def procesar_altas(parque_vigentes, activos, nomina, template_altas):
 
     hoy = pd.Timestamp.today().normalize()
     primer_dia_mes_actual = hoy.replace(day=1)
-    primer_dia_hace_uno_meses = primer_dia_mes_actual - DateOffset(months=1)
+    primer_dia_hace_un_mes = primer_dia_mes_actual - DateOffset(months=1)
 
     activos_filtrado = activos_filtrado[
-        activos_filtrado[col_fecha_alta] >= primer_dia_hace_uno_meses
+        activos_filtrado[col_fecha_alta] >= primer_dia_hace_un_mes
     ]
 
     # ==============================
@@ -547,14 +547,15 @@ with tab_bajas:
         if "bajas_upload_time" not in st.session_state:
             st.session_state.bajas_upload_time = datetime.now()
 
-        st.info(f"📂 Archivos de BAJAS cargados el: "
-                f"{st.session_state.bajas_upload_time:%Y-%m-%d %H:%M:%S}")
+        st.info(
+            f"📂 Archivos de BAJAS cargados el: "
+            f"{st.session_state.bajas_upload_time:%Y-%m-%d %H:%M:%S}"
+        )
 
         if st.button("Procesar bajas"):
             start_time = datetime.now()
             st.session_state.bajas_start_time = start_time
 
-            # ------------ TU PROCESO ACTUAL ------------
             parque_df = pd.read_excel(parque_file, sheet_name="Anuladas")
             cancelacion_df = pd.read_excel(cancelacion_file)
             cancelado_df = pd.read_excel(cancelado_file)
@@ -564,19 +565,16 @@ with tab_bajas:
                 df.columns = df.columns.str.strip()
 
             consolidado = procesar_bajas(parque_df, cancelacion_df, cancelado_df, nomina_df)
-            # ------------ FIN DEL PROCESO ------------
 
             end_time = datetime.now()
             st.session_state.bajas_end_time = end_time
 
             st.success("Consolidado de bajas generado correctamente.")
-
-            # tiempos en pantalla
             st.write(f"⏱ Inicio del proceso: {start_time:%Y-%m-%d %H:%M:%S}")
             st.write(f"✅ Fin del proceso: {end_time:%Y-%m-%d %H:%M:%S}")
             st.write(f"⌛ Duración: {(end_time - start_time).total_seconds():.1f} segundos")
 
-            df_to_excel_download(consolidado, nombre_archivo_bajas, label="📥 Descargar bajas")
+            df_to_excel_download(consolidado, "consolidado_de_bajas.xlsx", label="📥 Descargar bajas")
     else:
         st.info("📂 Sube todos los archivos para poder generar el consolidado de bajas.")
 
@@ -589,19 +587,19 @@ with tab_altas:
     nomina_altas_file = st.file_uploader("Desectos o Nominas", type=["xlsx", "xls"], key="nomina_altas")
     template_file = st.file_uploader("Altas (Template)", type=["xlsx", "xls"], key="template_altas")
 
-    # 🕒 Momento en que ya se tienen todos los archivos de ALTAS
     if all([parque_v_file, activos_file, nomina_altas_file, template_file]):
         if "altas_upload_time" not in st.session_state:
             st.session_state.altas_upload_time = datetime.now()
 
-        st.info(f"📂 Archivos de ALTAS cargados el: "
-                f"{st.session_state.altas_upload_time:%Y-%m-%d %H:%M:%S}")
+        st.info(
+            f"📂 Archivos de ALTAS cargados el: "
+            f"{st.session_state.altas_upload_time:%Y-%m-%d %H:%M:%S}"
+        )
 
         if st.button("Procesar altas"):
             start_time = datetime.now()
             st.session_state.altas_start_time = start_time
 
-            # ------------ TU PROCESO ACTUAL ------------
             parque_v_df = pd.read_excel(parque_v_file, sheet_name="Vigentes")
             activos_df = pd.read_excel(activos_file)
             nomina_altas_df = pd.read_excel(nomina_altas_file)
@@ -613,25 +611,23 @@ with tab_altas:
             template_final_df, activos_salida_df = procesar_altas(
                 parque_v_df, activos_df, nomina_altas_df, template_df
             )
-            # ------------ FIN DEL PROCESO ------------
 
             end_time = datetime.now()
             st.session_state.altas_end_time = end_time
 
             st.success("Template de Altas generado correctamente.")
-
             st.write(f"⏱ Inicio del proceso: {start_time:%Y-%m-%d %H:%M:%S}")
             st.write(f"✅ Fin del proceso: {end_time:%Y-%m-%d %H:%M:%S}")
             st.write(f"⌛ Duración: {(end_time - start_time).total_seconds():.1f} segundos")
 
             df_to_excel_download(
                 template_final_df,
-                nombre_archivo_template,
+                "Template_de_Altas_generado.xlsx",
                 label="📥 Descargar Template de Altas"
             )
             df_to_excel_download(
                 activos_salida_df,
-                nombre_archivo_activos,
+                "Activos_filtrados_altas.xlsx",
                 label="📥 Descargar Activos"
             )
     else:
