@@ -522,17 +522,16 @@ def df_to_excel_download(df, filename, label=None):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-
 # =========================================
 # APP STREAMLIT
 # =========================================
 
 st.set_page_config(page_title="Raspberry – Altas y Bajas", layout="wide")
 
-
 st.title("Reportes Raspberry – Altas y Bajas")
 
 tab_bajas, tab_altas = st.tabs(["🔻 Reportes de Bajas", "🔺 Reportes de Altas"])
+
 # ---- CSS simple para darle forma de tarjetas a los uploaders ----
 st.markdown(
     """
@@ -581,7 +580,7 @@ with tab_bajas:
         )
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ---------- SEGUNDA FILA (Desectos / Cancelado) ----------
+    # ---------- SEGUNDA FILA (Desecto / Cancelado) ----------
     col_desecto, col_cancelado = st.columns(2)
 
     with col_desecto:
@@ -604,7 +603,7 @@ with tab_bajas:
         )
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # ---------- LÓGICA DE PROCESO (igual que antes) ----------
+    # ---------- LÓGICA DE PROCESO BAJAS ----------
     if all([parque_file, cancelacion_file, cancelado_file, nomina_file]):
         if "bajas_upload_time" not in st.session_state:
             st.session_state.bajas_upload_time = datetime.now()
@@ -639,3 +638,100 @@ with tab_bajas:
             df_to_excel_download(consolidado, "consolidado_de_bajas.xlsx", label="📥 Descargar bajas")
     else:
         st.info("📂 Sube todos los archivos para poder generar el consolidado de bajas.")
+
+# ---------------- TAB ALTAS ----------------
+with tab_altas:
+    st.subheader("Template de Altas")
+
+    # ---------- PRIMERA FILA (Parque Vigentes / Activos) ----------
+    col_parque_vig, col_activos = st.columns(2)
+
+    with col_parque_vig:
+        st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title">Parque (Vigentes)</div>', unsafe_allow_html=True)
+        parque_v_file = st.file_uploader(
+            "Selecciona archivo de Parque (hoja Vigentes)",
+            type=["xlsx", "xls"],
+            key="parque_altas"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_activos:
+        st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title">Activos</div>', unsafe_allow_html=True)
+        activos_file = st.file_uploader(
+            "Selecciona archivo de Activos",
+            type=["xlsx", "xls"],
+            key="activos_altas"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---------- SEGUNDA FILA (Desectos / Template Altas) ----------
+    col_nomina_altas, col_template = st.columns(2)
+
+    with col_nomina_altas:
+        st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title">Desectos / Nómina</div>', unsafe_allow_html=True)
+        nomina_altas_file = st.file_uploader(
+            "Selecciona archivo de Desectos o Nómina",
+            type=["xlsx", "xls"],
+            key="nomina_altas"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_template:
+        st.markdown('<div class="upload-card">', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title">Altas (Template)</div>', unsafe_allow_html=True)
+        template_file = st.file_uploader(
+            "Selecciona archivo de Altas (Template base)",
+            type=["xlsx", "xls"],
+            key="template_altas"
+        )
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---------- LÓGICA DE PROCESO ALTAS ----------
+    if all([parque_v_file, activos_file, nomina_altas_file, template_file]):
+        if "altas_upload_time" not in st.session_state:
+            st.session_state.altas_upload_time = datetime.now()
+
+        st.info(
+            f"📂 Archivos de ALTAS cargados el: "
+            f"{st.session_state.altas_upload_time:%Y-%m-%d %H:%M:%S}"
+        )
+
+        if st.button("Procesar altas"):
+            start_time = datetime.now()
+            st.session_state.altas_start_time = start_time
+
+            parque_v_df = pd.read_excel(parque_v_file, sheet_name="Vigentes")
+            activos_df = pd.read_excel(activos_file)
+            nomina_altas_df = pd.read_excel(nomina_altas_file)
+            template_df = pd.read_excel(template_file)
+
+            for df in [parque_v_df, activos_df, nomina_altas_df, template_df]:
+                df.columns = df.columns.str.strip()
+
+            template_final_df, activos_salida_df = procesar_altas(
+                parque_v_df, activos_df, nomina_altas_df, template_df
+            )
+
+            end_time = datetime.now()
+            st.session_state.altas_end_time = end_time
+
+            st.success("Template de Altas generado correctamente.")
+            st.write(f"⏱ Inicio del proceso: {start_time:%Y-%m-%d %H:%M:%S}")
+            st.write(f"✅ Fin del proceso: {end_time:%Y-%m-%d %H:%M:%S}")
+            st.write(f"⌛ Duración: {(end_time - start_time).total_seconds():.1f} segundos")
+
+            df_to_excel_download(
+                template_final_df,
+                "Template_de_Altas_generado.xlsx",
+                label="📥 Descargar Template de Altas"
+            )
+            df_to_excel_download(
+                activos_salida_df,
+                "Activos_filtrados_altas.xlsx",
+                label="📥 Descargar Activos"
+            )
+    else:
+        st.info("📂 Sube todos los archivos para poder generar el reporte de Altas.")
