@@ -585,7 +585,7 @@ with tab_bajas:
 
     with col_desecto:
         st.markdown('<div class="upload-card">', unsafe_allow_html=True)
-        st.markdown('<div class="upload-title">Desecto / Nómina</div>', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title">Desectos / Nómina</div>', unsafe_allow_html=True)
         nomina_file = st.file_uploader(
             "Selecciona archivo de Desectos o Nómina",
             type=["xlsx", "xls"],
