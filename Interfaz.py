@@ -562,9 +562,9 @@ with tab_bajas:
 
     with col_parque:
         st.markdown('<div class="upload-card">', unsafe_allow_html=True)
-        st.markdown('<div class="upload-title">Parque</div>', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title"> Parque Vehicular </div>', unsafe_allow_html=True)
         parque_file = st.file_uploader(
-            "Selecciona archivo de Parque",
+            "Selecciona archivo de Parque Vehicular",
             type=["xlsx", "xls"],
             key="parque_bajas"
         )
@@ -648,9 +648,9 @@ with tab_altas:
 
     with col_parque_vig:
         st.markdown('<div class="upload-card">', unsafe_allow_html=True)
-        st.markdown('<div class="upload-title">Parque (Vigentes)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="upload-title"> Parque Vehicular </div>', unsafe_allow_html=True)
         parque_v_file = st.file_uploader(
-            "Selecciona archivo de Parque (hoja Vigentes)",
+            "Selecciona archivo de Parque Vehicular",
             type=["xlsx", "xls"],
             key="parque_altas"
         )
